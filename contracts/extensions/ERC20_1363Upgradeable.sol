@@ -9,8 +9,11 @@ import "../interfaces/IERC1363Spender.sol";
 
 /**
  * @title ERC20_1363Upgradeable
- * @dev Extension of ERC20 that implements ERC-1363 Payable Token with callback
+ * @dev ERC-1363 Payable Token extension for ERC20 tokens
+ * Implements transferAndCall, transferFromAndCall, approveAndCall
  * Uses ERC-7201 namespaced storage pattern
+ * 
+ * NOTE: Implementation not yet debugged, requires testing
  */
 abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IERC1363 {
     bytes4 private constant ERC1363_RECEIVED = type(IERC1363Receiver).interfaceId;
