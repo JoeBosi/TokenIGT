@@ -45,7 +45,7 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
      * @return true if transfer and call successful
      */
     function transferAndCall(address to, uint256 value, bytes memory data) public returns (bool) {
-        _transfer(msg.sender, to, value);
+        _transfer1363(msg.sender, to, value);
         
         _checkAndCallTransfer(msg.sender, to, value, data);
         
@@ -73,7 +73,7 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
      */
     function transferFromAndCall(address from, address to, uint256 value, bytes memory data) public returns (bool) {
         _spendAllowance(from, msg.sender, value);
-        _transfer(from, to, value);
+        _transfer1363(from, to, value);
         
         _checkAndCallTransfer(from, to, value, data);
         
@@ -98,7 +98,7 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
      * @return true if approve and call successful
      */
     function approveAndCall(address spender, uint256 value, bytes memory data) public returns (bool) {
-        _approve(msg.sender, spender, value);
+        _approve1363(msg.sender, spender, value);
         
         _checkAndCallApproval(msg.sender, spender, value, data);
         
@@ -150,7 +150,7 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
     }
 
     // Virtual functions to be implemented by the main contract
-    function _transfer(address from, address to, uint256 value) internal virtual;
+    function _transfer1363(address from, address to, uint256 value) internal virtual;
     function _spendAllowance(address owner, address spender, uint256 value) internal virtual;
-    function _approve(address owner, address spender, uint256 value) internal virtual;
+    function _approve1363(address owner, address spender, uint256 value) internal virtual;
 }

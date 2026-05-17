@@ -35,7 +35,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
 
     function __ERC20EIP3009_init() internal onlyInitializing {
-        __EIP712_init_unchained("IGE Token", "1");
+        // EIP712 is initialized by ERC20Permit, no need to initialize again
     }
 
     function __ERC20EIP3009_init_unchained() internal onlyInitializing {}
@@ -197,8 +197,9 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     }
 
     function _getEIP3009Storage() private pure returns (EIP3009Storage storage $) {
+        bytes32 position = keccak256(abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1));
         assembly {
-            $.slot := STORAGE_LOCATION
+            $.slot := position
         }
     }
 

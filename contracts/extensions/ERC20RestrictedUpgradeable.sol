@@ -74,8 +74,9 @@ abstract contract ERC20RestrictedUpgradeable is Initializable, AccessControlUpgr
     }
 
     function _getRestrictedStorage() private pure returns (RestrictedStorage storage $) {
+        bytes32 position = keccak256(abi.encode(uint256(keccak256("advanced.token.restricted.storage")) - 1));
         assembly {
-            $.slot := STORAGE_LOCATION
+            $.slot := position
         }
     }
 }

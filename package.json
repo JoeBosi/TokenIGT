@@ -26,6 +26,7 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.10.6",
     "chai": "^4.4.1",
+    "ethers": "^6.9.0",
     "hardhat": "^2.22.0",
     "hardhat-gas-reporter": "^1.0.9",
     "solidity-coverage": "^0.8.5",

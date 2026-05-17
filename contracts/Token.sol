@@ -66,7 +66,6 @@ contract Token is
         __ERC20Permit_init(name_);
         __ERC20Pausable_init();
         __AccessControl_init();
-        __UUPSUpgradeable_init();
         __ERC20Freezable_init();
         __ERC20Restricted_init();
         __ERC20Fee_init(initialFee_, feeCollector_);
@@ -75,6 +74,11 @@ contract Token is
         __ERC20Recoverable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin_);
+        
+        // Mint initial supply to the initial holder
+        if (initialSupply_ > 0 && initialHolder_ != address(0)) {
+            _mint(initialHolder_, initialSupply_);
+        }
     }
 
     /**
@@ -122,18 +126,18 @@ contract Token is
      * @dev Hook called before any transfer
      * Implements BLOCK and FREEZE checks in canonical order
      */
-    function _beforeTokenTransfer(address from, address to, uint256 value) internal override {
+    function _beforeTokenTransfer(address from, address to, uint256 value) internal override(ERC20FreezableUpgradeable, ERC20RestrictedUpgradeable) {
         // 2. BLOCK check
-        super._beforeTokenTransfer(from, to, value);
+        ERC20RestrictedUpgradeable._beforeTokenTransfer(from, to, value);
         
         // 3. FREEZE check
-        super._beforeTokenTransfer(from, to, value);
+        ERC20FreezableUpgradeable._beforeTokenTransfer(from, to, value);
     }
 
     /**
      * @dev Hook called after transfer to handle fee
      */
-    function _afterTokenTransfer(address from, address to, uint256 value) internal override {
+    function _afterTokenTransfer(address from, address to, uint256 value) internal {
         // 4. FEE check and application
         uint256 feeAmount = _calculateFee(from, to, value);
         
@@ -172,16 +176,16 @@ contract Token is
     }
 
     /**
-     * @dev Implement _transfer for ERC-1363 module
+     * @dev Implement _transfer1363 for ERC-1363 module
      */
-    function _transfer(address from, address to, uint256 value) internal override {
+    function _transfer1363(address from, address to, uint256 value) internal override {
         _update(from, to, value);
     }
 
     /**
      * @dev Implement _spendAllowance for ERC-1363 module
      */
-    function _spendAllowance(address owner, address spender, uint256 value) internal override {
+    function _spendAllowance(address owner, address spender, uint256 value) internal override(ERC20Upgradeable, ERC20_1363Upgradeable) {
         uint256 current = allowance(owner, spender);
         if (current < value) {
             revert ERC20InsufficientAllowance(spender, current, value);
@@ -189,17 +193,25 @@ contract Token is
         _approve(owner, spender, current - value);
     }
 
-    /**
-     * @dev Implement _approve for ERC-1363 module
-     */
-    function _approve(address owner, address spender, uint256 value) internal override {
-        super._approve(owner, spender, value);
-    }
 
     /**
      * @dev Implement balanceOf for ERC20FreezableUpgradeable module
      */
     function balanceOf(address account) public view override(ERC20Upgradeable, ERC20FreezableUpgradeable) returns (uint256) {
         return super.balanceOf(account);
+    }
+
+    /**
+     * @dev Implement _approve1363 for ERC-1363 module
+     */
+    function _approve1363(address owner, address spender, uint256 value) internal override {
+        _approve(owner, spender, value);
+    }
+
+    /**
+     * @dev Implement supportsInterface for ERC20_1363 and AccessControl
+     */
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControlUpgradeable, ERC20_1363Upgradeable) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 }

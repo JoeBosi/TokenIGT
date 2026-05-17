@@ -11,7 +11,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  */
 abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgradeable {
     bytes32 public constant FREEZER_ROLE = keccak256("FREEZER_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
     // ERC-7201 namespace: advanced.token.freezable
     bytes32 private constant STORAGE_LOCATION = keccak256(
@@ -106,8 +105,8 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      * BURNER_ROLE can override this check
      */
     function _beforeTokenTransfer(address from, address, uint256 value) internal virtual {
-        // Skip check for mint (from == address(0)) or if caller has BURNER_ROLE
-        if (from == address(0) || hasRole(BURNER_ROLE, msg.sender)) {
+        // Skip check for mint (from == address(0))
+        if (from == address(0)) {
             return;
         }
 
@@ -123,8 +122,9 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
     }
 
     function _getFreezableStorage() private pure returns (FreezableStorage storage $) {
+        bytes32 position = keccak256(abi.encode(uint256(keccak256("advanced.token.freezable.storage")) - 1));
         assembly {
-            $.slot := STORAGE_LOCATION
+            $.slot := position
         }
     }
 

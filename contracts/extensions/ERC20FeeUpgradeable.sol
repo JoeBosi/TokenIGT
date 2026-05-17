@@ -28,7 +28,7 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
     error FeeExceedsMaximum(uint256 fee, uint256 maxFee);
     error InvalidFeeCollector();
 
-    function __ERC20Fee_init(uint256 initialFee, address feeCollector) internal onlyInitializing {
+    function __ERC20Fee_init(uint256 initialFee, address feeCollector_) internal onlyInitializing {
         __AccessControl_init();
         
         FeeStorage storage $ = _getFeeStorage();
@@ -37,12 +37,12 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
             revert FeeExceedsMaximum(initialFee, MAX_FEE_BASIS_POINTS);
         }
         
-        if (feeCollector == address(0)) {
+        if (feeCollector_ == address(0)) {
             revert InvalidFeeCollector();
         }
         
         $.fee = initialFee;
-        $.feeCollector = feeCollector;
+        $.feeCollector = feeCollector_;
     }
 
     function __ERC20Fee_init_unchained() internal onlyInitializing {}
@@ -152,8 +152,9 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
     }
 
     function _getFeeStorage() private pure returns (FeeStorage storage $) {
+        bytes32 position = keccak256(abi.encode(uint256(keccak256("advanced.token.fee.storage")) - 1));
         assembly {
-            $.slot := STORAGE_LOCATION
+            $.slot := position
         }
     }
 
