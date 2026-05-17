@@ -56,18 +56,20 @@ describe("Token - Pausable", function () {
       await expect(token.approve(addr1.address, ethers.parseEther("100"))).to.not.be.reverted;
     });
 
-    it("Should NOT block mint when paused", async function () {
+    it("Should block mint when paused", async function () {
       const MINTER_ROLE = await token.MINTER_ROLE();
       await token.grantRole(MINTER_ROLE, owner.address);
       await token.connect(pauser).pause();
-      await expect(token.mint(addr1.address, ethers.parseEther("100"))).to.not.be.reverted;
+      await expect(token.mint(addr1.address, ethers.parseEther("100")))
+        .to.be.revertedWithCustomError(token, "EnforcedPause");
     });
 
-    it("Should NOT block burn when paused", async function () {
+    it("Should block burn when paused", async function () {
       const BURNER_ROLE = await token.BURNER_ROLE();
       await token.grantRole(BURNER_ROLE, owner.address);
       await token.connect(pauser).pause();
-      await expect(token.burn(owner.address, ethers.parseEther("100"))).to.not.be.reverted;
+      await expect(token.burn(owner.address, ethers.parseEther("100")))
+        .to.be.revertedWithCustomError(token, "EnforcedPause");
     });
   });
 

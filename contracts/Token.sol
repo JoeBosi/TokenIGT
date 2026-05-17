@@ -114,12 +114,82 @@ contract Token is
     }
 
     /**
+     * @notice Freeze all tokens for an address (prevent transfers)
+     * @param account Address to freeze
+     */
+    function freeze(address account) public onlyRole(FREEZER_ROLE) {
+        freezeAll(account);
+    }
+
+    /**
+     * @notice Unfreeze an address (allow transfers)
+     * @param account Address to unfreeze
+     */
+    function unfreeze(address account) public override onlyRole(FREEZER_ROLE) {
+        ERC20FreezableUpgradeable.unfreeze(account);
+    }
+
+    /**
+     * @notice Block an address (prevent transfers)
+     * @param account Address to block
+     */
+    function block(address account) public onlyRole(BLOCKER_ROLE) {
+        blockUser(account);
+    }
+
+    /**
+     * @notice Unblock an address (allow transfers)
+     * @param account Address to unblock
+     */
+    function unblock(address account) public onlyRole(BLOCKER_ROLE) {
+        resetUser(account);
+    }
+
+    /**
+     * @notice Check if an address is frozen
+     * @param account Address to check
+     * @return true if frozen
+     */
+    function isFrozen(address account) public view returns (bool) {
+        return frozenOf(account) > 0;
+    }
+
+    /**
      * @dev Override _update to implement canonical order of checks
      * Order: PAUSE -> BLOCK -> FREEZE -> FEE -> SETTLEMENT
      */
     function _update(address from, address to, uint256 value) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) {
         // 1. PAUSE check (from ERC20PausableUpgradeable via whenNotPaused modifier)
-        super._update(from, to, value);
+        
+        // 2. BLOCK check
+        if (from != address(0) && to != address(0)) {
+            if (isBlocked(from) || isBlocked(to)) {
+                revert AccountBlocked();
+            }
+        }
+        
+        // 3. FREEZE check
+        if (from != address(0) && to != address(0)) {
+            if (isFrozen(from) || isFrozen(to)) {
+                revert AccountFrozen();
+            }
+        }
+        
+        // Calculate fee before the transfer
+        uint256 feeAmount = _calculateFee(from, to, value);
+        
+        if (feeAmount > 0) {
+            address collector = feeCollector();
+            uint256 netValue = value - feeAmount;
+            
+            // Perform the transfer with fee deduction
+            super._update(from, to, netValue);
+            // Transfer fee to collector
+            super._update(from, collector, feeAmount);
+        } else {
+            // No fee, normal transfer
+            super._update(from, to, value);
+        }
     }
 
     /**
@@ -135,24 +205,18 @@ contract Token is
     }
 
     /**
-     * @dev Hook called after transfer to handle fee
+     * @dev Hook called after transfer to emit fee event
+     * Fee is already handled in _update
      */
     function _afterTokenTransfer(address from, address to, uint256 value) internal {
-        // 4. FEE check and application
+        // 4. FEE event emission (fee already applied in _update)
         uint256 feeAmount = _calculateFee(from, to, value);
         
         if (feeAmount > 0) {
             address collector = feeCollector();
-            uint256 netValue = value - feeAmount;
             
             // Emit transfer event for fee
             _emitTransfer(from, collector, feeAmount);
-            
-            // Update balances for fee
-            _update(from, collector, feeAmount);
-            
-            // Update balance for recipient with net value
-            _update(from, to, netValue);
         }
     }
 
@@ -162,6 +226,13 @@ contract Token is
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 
     /**
+     * @dev Fixed version check for upgrade
+     */
+    function version() public pure returns (string memory) {
+        return "1.1.0-fixed";
+    }
+
+    /**
      * @dev Implement _emitTransfer for fee module
      */
     function _emitTransfer(address from, address to, uint256 value) internal override {
@@ -169,17 +240,19 @@ contract Token is
     }
 
     /**
-     * @dev Implement _executeTransfer for EIP-3009 module
+     * @dev Implement _executeTransfer for EIP-3009 module (no fees)
      */
     function _executeTransfer(address from, address to, uint256 value) internal override {
-        _update(from, to, value);
+        // Direct transfer without fees for EIP-3009
+        ERC20Upgradeable._update(from, to, value);
     }
 
     /**
-     * @dev Implement _transfer1363 for ERC-1363 module
+     * @dev Implement _transfer1363 for ERC-1363 module (no fees)
      */
     function _transfer1363(address from, address to, uint256 value) internal override {
-        _update(from, to, value);
+        // Direct transfer without fees for ERC-1363
+        ERC20Upgradeable._update(from, to, value);
     }
 
     /**

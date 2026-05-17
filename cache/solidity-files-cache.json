@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/giuseppe/Developer/TokenIGT/contracts/Token.sol": {
-      "lastModificationDate": 1779046850657,
-      "contentHash": "a02e1d0e87d58317324b802e6be97d41",
+      "lastModificationDate": 1779049123485,
+      "contentHash": "04ba18c571593ffdd704ec45bda25260",
       "sourceName": "contracts/Token.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -52,8 +52,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20RestrictedUpgradeable.sol": {
-      "lastModificationDate": 1779046211651,
-      "contentHash": "433fb418e8b3d406ab6f66b16f485d2f",
+      "lastModificationDate": 1779047289583,
+      "contentHash": "13474b61a2252a6d6ca5bb193b8d2cd5",
       "sourceName": "contracts/extensions/ERC20RestrictedUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -174,8 +174,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20FreezableUpgradeable.sol": {
-      "lastModificationDate": 1779046436858,
-      "contentHash": "8c2bb44580153f24cfc5417ab072fcba",
+      "lastModificationDate": 1779047265407,
+      "contentHash": "ce8202f6ca273855e0bee8345b42edf8",
       "sourceName": "contracts/extensions/ERC20FreezableUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -214,8 +214,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20_1363Upgradeable.sol": {
-      "lastModificationDate": 1779046488558,
-      "contentHash": "8964bf44212ce53c6a35ee5cf20a78e4",
+      "lastModificationDate": 1779047006703,
+      "contentHash": "75dc1904e2ad5f29117fa5d67efa2567",
       "sourceName": "contracts/extensions/ERC20_1363Upgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -2395,8 +2395,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/mocks/MockERC1363Receiver.sol": {
-      "lastModificationDate": 1779040081008,
-      "contentHash": "ad9d6f351874c4276222a90562258917",
+      "lastModificationDate": 1779047435182,
+      "contentHash": "74fdd113a745e0b519bc6d1a4382cb7e",
       "sourceName": "contracts/mocks/MockERC1363Receiver.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -2424,7 +2424,8 @@
         }
       },
       "imports": [
-        "../interfaces/IERC1363Receiver.sol"
+        "../interfaces/IERC1363Receiver.sol",
+        "../interfaces/IERC1363Spender.sol"
       ],
       "versionPragmas": [
         "^0.8.28"

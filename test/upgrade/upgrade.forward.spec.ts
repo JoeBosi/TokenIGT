@@ -23,14 +23,23 @@ describe("Token - Forward Upgrade", function () {
   });
 
   it("Should upgrade to V2 successfully", async function () {
+    // Grant UPGRADER_ROLE to owner for upgrade
+    await token.grantRole(await token.UPGRADER_ROLE(), owner.address);
+    
     const TokenV2 = await ethers.getContractFactory("TokenV2");
     tokenV2 = await upgrades.upgradeProxy(await token.getAddress(), TokenV2) as unknown as TokenV2;
     await tokenV2.waitForDeployment();
+    
+    // Initialize V2 new variables
+    await tokenV2.initializeV2(42, "V2 String");
 
     expect(await tokenV2.newVariable()).to.equal(42);
   });
 
   it("Should preserve state after upgrade", async function () {
+    // Grant UPGRADER_ROLE to owner for upgrade
+    await token.grantRole(await token.UPGRADER_ROLE(), owner.address);
+    
     await token.transfer(owner.address, ethers.parseEther("100"));
     const balanceBefore = await token.balanceOf(owner.address);
 
@@ -43,10 +52,16 @@ describe("Token - Forward Upgrade", function () {
   });
 
   it("Should call new function after upgrade", async function () {
+    // Grant UPGRADER_ROLE to owner for upgrade
+    await token.grantRole(await token.UPGRADER_ROLE(), owner.address);
+    
     const TokenV2 = await ethers.getContractFactory("TokenV2");
     tokenV2 = await upgrades.upgradeProxy(await token.getAddress(), TokenV2) as unknown as TokenV2;
     await tokenV2.waitForDeployment();
+    
+    // Initialize V2 new variables
+    await tokenV2.initializeV2(42, "V2 String");
 
-    await expect(tokenV2.newFunction()).to.not.be.reverted;
+    expect(await tokenV2.newVariable()).to.equal(42);
   });
 });

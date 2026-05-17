@@ -85,7 +85,10 @@ describe("Token - Recoverable", function () {
 
   describe("recoverERC721", function () {
     it("Should allow recoverer to recover ERC721 NFT", async function () {
-      const tokenId = await mockERC721.mint(await token.getAddress());
+      const tx = await mockERC721.mint(await token.getAddress());
+      const receipt = await tx.wait();
+      // The tokenId is returned from the mint function, get it from the transaction logs or use a simple approach
+      const tokenId = 0; // First minted token has ID 0
 
       await token.connect(recoverer).recoverERC721(await mockERC721.getAddress(), addr1.address, tokenId);
 

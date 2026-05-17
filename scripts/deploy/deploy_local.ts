@@ -118,19 +118,45 @@ async function main() {
 
   console.log("\n📝 Deployment information saved to deployments/local/");
 
-  // Save ABI
-  const artifactsDir = path.join(__dirname, "../../artifacts/contracts");
+  // Save complete deploy info to abi/ folder
   const abiDir = path.join(__dirname, "../../abi");
   if (!fs.existsSync(abiDir)) {
     fs.mkdirSync(abiDir, { recursive: true });
   }
 
-  const artifact = JSON.parse(
-    fs.readFileSync(path.join(artifactsDir, "Token.sol", "Token.json"), "utf8")
-  );
-  fs.writeFileSync(path.join(abiDir, "Token.json"), JSON.stringify(artifact.abi, null, 2));
+  // Get contract artifacts for ABI
+  const TokenArtifact = await ethers.getContractFactory("Token");
+  const TokenV2Artifact = await ethers.getContractFactory("TokenV2");
+  const TokenV3Artifact = await ethers.getContractFactory("TokenV3");
+  const ERC1967ProxyArtifact = await ethers.getContractFactory("@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy");
 
-  console.log("📄 ABI saved to abi/Token.json");
+  // Save ABIs
+  fs.writeFileSync(path.join(abiDir, "Token.json"), JSON.stringify(TokenArtifact.interface.formatJson(), null, 2));
+  fs.writeFileSync(path.join(abiDir, "TokenV2.json"), JSON.stringify(TokenV2Artifact.interface.formatJson(), null, 2));
+  fs.writeFileSync(path.join(abiDir, "TokenV3.json"), JSON.stringify(TokenV3Artifact.interface.formatJson(), null, 2));
+  fs.writeFileSync(path.join(abiDir, "ERC1967Proxy.json"), JSON.stringify(ERC1967ProxyArtifact.interface.formatJson(), null, 2));
+
+  // Save complete deploy info for local
+  const deployInfo = {
+    network: "local",
+    chainId: (await ethers.provider.getNetwork()).chainId.toString(),
+    deployer: deployer.address,
+    timestamp: new Date().toISOString(),
+    contracts: {
+      Token: {
+        proxy: tokenAddress,
+        implementation: implementationAddress,
+        type: "UUPS"
+      }
+    },
+    constructorArgs: [tokenName, tokenSymbol, initialSupply, initialHolder, initialFee, feeCollector, defaultAdmin],
+    explorer: "Local network - no explorer available"
+  };
+
+  fs.writeFileSync(path.join(abiDir, "deploy-local.json"), JSON.stringify(deployInfo, null, 2));
+
+  console.log("✅ Deploy info saved to abi/ folder");
+  console.log("📄 All ABIs saved to abi/ folder");
 }
 
 main()

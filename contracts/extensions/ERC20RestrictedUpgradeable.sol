@@ -22,6 +22,10 @@ abstract contract ERC20RestrictedUpgradeable is Initializable, AccessControlUpgr
     }
 
     error AddressBlocked();
+    error AccountBlocked();
+
+    event Blocked(address indexed account);
+    event Unblocked(address indexed account);
 
     function __ERC20Restricted_init() internal onlyInitializing {
         __AccessControl_init();
@@ -43,18 +47,20 @@ abstract contract ERC20RestrictedUpgradeable is Initializable, AccessControlUpgr
      * @notice Block an account
      * @param account The address to block
      */
-    function blockUser(address account) public onlyRole(BLOCKER_ROLE) {
+    function blockUser(address account) public virtual onlyRole(BLOCKER_ROLE) {
         RestrictedStorage storage $ = _getRestrictedStorage();
         $.blocked[account] = true;
+        emit Blocked(account);
     }
 
     /**
      * @notice Unblock an account
      * @param account The address to unblock
      */
-    function resetUser(address account) public onlyRole(BLOCKER_ROLE) {
+    function resetUser(address account) public virtual onlyRole(BLOCKER_ROLE) {
         RestrictedStorage storage $ = _getRestrictedStorage();
         $.blocked[account] = false;
+        emit Unblocked(account);
     }
 
     /**

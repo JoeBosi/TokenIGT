@@ -56,10 +56,17 @@ describe("Token - Mint and Burn", function () {
 
   describe("Burn", function () {
     it("Should allow burner to burn tokens", async function () {
-      await token.transfer(addr1.address, ethers.parseEther("100"));
-      await token.connect(burner).burn(addr1.address, ethers.parseEther("50"));
-      expect(await token.balanceOf(addr1.address)).to.equal(ethers.parseEther("50"));
-      expect(await token.totalSupply()).to.equal(INITIAL_SUPPLY - ethers.parseEther("50"));
+      const transferAmount = ethers.parseEther("100");
+      await token.transfer(addr1.address, transferAmount);
+      
+      // 10% fee applied to transfer
+      const expectedFee = transferAmount * 10n / 10000n;
+      const expectedReceived = transferAmount - expectedFee;
+      
+      const burnAmount = ethers.parseEther("50");
+      await token.connect(burner).burn(addr1.address, burnAmount);
+      expect(await token.balanceOf(addr1.address)).to.equal(expectedReceived - burnAmount);
+      expect(await token.totalSupply()).to.equal(INITIAL_SUPPLY - burnAmount);
     });
 
     it("Should emit Transfer event on burn", async function () {

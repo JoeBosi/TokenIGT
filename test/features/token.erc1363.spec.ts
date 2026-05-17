@@ -33,14 +33,14 @@ describe("Token - ERC-1363", function () {
       const amount = ethers.parseEther("100");
       const data = "0x1234";
 
-      await expect(token.transferAndCall(await receiver.getAddress(), amount, data))
+      await expect(token["transferAndCall(address,uint256,bytes)"](await receiver.getAddress(), amount, data))
         .to.emit(token, "Transfer")
         .to.emit(receiver, "TransferReceived");
     });
 
     it("Should update balances correctly", async function () {
       const amount = ethers.parseEther("100");
-      await token.transferAndCall(await receiver.getAddress(), amount);
+      await token["transferAndCall(address,uint256)"](await receiver.getAddress(), amount);
 
       expect(await token.balanceOf(await receiver.getAddress())).to.equal(amount);
       expect(await token.balanceOf(owner.address)).to.equal(INITIAL_SUPPLY - amount);
@@ -48,7 +48,7 @@ describe("Token - ERC-1363", function () {
 
     it("Should work without data", async function () {
       const amount = ethers.parseEther("100");
-      await expect(token.transferAndCall(await receiver.getAddress(), amount)).to.not.be.reverted;
+      await expect(token["transferAndCall(address,uint256)"](await receiver.getAddress(), amount)).to.not.be.reverted;
     });
   });
 

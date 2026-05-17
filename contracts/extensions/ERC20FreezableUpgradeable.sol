@@ -23,6 +23,10 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
 
     error InsufficientUnfrozenBalance(uint256 requested, uint256 available);
     error InvalidFreezeAmount();
+    error AccountFrozen();
+
+    event Frozen(address indexed account);
+    event Unfrozen(address indexed account);
 
     function __ERC20Freezable_init() internal onlyInitializing {
         __AccessControl_init();
@@ -72,15 +76,17 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
     function freezeAll(address account) public onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
         $.frozen[account] = type(uint256).max;
+        emit Frozen(account);
     }
 
     /**
      * @notice Unfreeze an account
      * @param account The address to unfreeze
      */
-    function unfreeze(address account) public onlyRole(FREEZER_ROLE) {
+    function unfreeze(address account) public virtual onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
         $.frozen[account] = 0;
+        emit Unfrozen(account);
     }
 
     /**
@@ -104,20 +110,27 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      * Checks if the sender has sufficient unfrozen balance
      * BURNER_ROLE can override this check
      */
-    function _beforeTokenTransfer(address from, address, uint256 value) internal virtual {
-        // Skip check for mint (from == address(0))
-        if (from == address(0)) {
+    function _beforeTokenTransfer(address from, address to, uint256 value) internal virtual {
+        // Skip check for mint/burn (from or to == address(0))
+        if (from == address(0) || to == address(0)) {
             return;
         }
 
+        // Check if sender is frozen
         uint256 frozen = frozenOf(from);
         if (frozen != 0) {
             uint256 balance = balanceOf(from);
             uint256 available = frozen >= balance ? 0 : balance - frozen;
             
             if (value > available) {
-                revert InsufficientUnfrozenBalance(value, available);
+                revert AccountFrozen();
             }
+        }
+
+        // Check if recipient is frozen
+        uint256 recipientFrozen = frozenOf(to);
+        if (recipientFrozen != 0) {
+            revert AccountFrozen();
         }
     }
 

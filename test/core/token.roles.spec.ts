@@ -42,7 +42,8 @@ describe("Token - Access Control", function () {
       const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
       const RECOVERER_ROLE = await token.RECOVERER_ROLE();
 
-      expect(DEFAULT_ADMIN_ROLE).to.not.equal(ethers.ZeroHash);
+            
+      expect(DEFAULT_ADMIN_ROLE).to.equal(ethers.ZeroHash); // DEFAULT_ADMIN_ROLE is always 0x00
       expect(UPGRADER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(PAUSER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(MINTER_ROLE).to.not.equal(ethers.ZeroHash);
@@ -126,9 +127,16 @@ describe("Token - Access Control", function () {
     it("Should allow burner to burn", async function () {
       const BURNER_ROLE = await token.BURNER_ROLE();
       await token.grantRole(BURNER_ROLE, burner.address);
-      await token.transfer(addr1.address, ethers.parseEther("100"));
-      await token.connect(burner).burn(addr1.address, ethers.parseEther("50"));
-      expect(await token.balanceOf(addr1.address)).to.equal(ethers.parseEther("50"));
+      const transferAmount = ethers.parseEther("100");
+      await token.transfer(addr1.address, transferAmount);
+      
+      // 10% fee applied to transfer
+      const expectedFee = transferAmount * 10n / 10000n;
+      const expectedReceived = transferAmount - expectedFee;
+      
+      const burnAmount = ethers.parseEther("50");
+      await token.connect(burner).burn(addr1.address, burnAmount);
+      expect(await token.balanceOf(addr1.address)).to.equal(expectedReceived - burnAmount);
     });
 
     it("Should not allow non-burner to burn", async function () {

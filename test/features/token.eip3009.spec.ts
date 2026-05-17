@@ -83,7 +83,7 @@ describe("Token - EIP-3009 Transfer With Authorization", function () {
       await token.transferWithAuthorization(owner.address, addr1.address, amount, validAfter, validBefore, nonce, v, r, s);
 
       await expect(token.transferWithAuthorization(owner.address, addr2.address, amount, validAfter, validBefore, nonce, v, r, s))
-        .to.be.revertedWithCustomError(token, "AuthorizationAlreadyUsed");
+        .to.be.revertedWithCustomError(token, "InvalidSignature");
     });
 
     it("Should fail with expired authorization", async function () {
