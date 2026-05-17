@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../interfaces/IERC3009.sol";
 
@@ -134,7 +134,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         );
 
         bytes32 hash = _hashTypedDataV4(structHash);
-        address signer = ECDSAUpgradeable.recover(hash, v, r, s);
+        address signer = ECDSA.recover(hash, v, r, s);
 
         if (signer != authorizer) {
             revert InvalidSignature();
@@ -176,7 +176,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         );
 
         bytes32 hash = _hashTypedDataV4(structHash);
-        address signer = ECDSAUpgradeable.recover(hash, v, r, s);
+        address signer = ECDSA.recover(hash, v, r, s);
 
         if (signer != from) {
             revert InvalidSignature();

@@ -3,14 +3,14 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/utils/ERC721HolderUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 /**
  * @title ERC20RecoverableUpgradeable
  * @dev Extension that allows recovery of tokens/ETH/NFT sent to the contract by mistake
  * Uses ERC-7201 namespaced storage pattern
  */
-abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpgradeable, ERC721HolderUpgradeable {
+abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpgradeable, ERC721Holder {
     bytes32 public constant RECOVERER_ROLE = keccak256("RECOVERER_ROLE");
 
     error InvalidRecipient();
@@ -18,7 +18,6 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
 
     function __ERC20Recoverable_init() internal onlyInitializing {
         __AccessControl_init();
-        __ERC721Holder_init();
     }
 
     function __ERC20Recoverable_init_unchained() internal onlyInitializing {}
