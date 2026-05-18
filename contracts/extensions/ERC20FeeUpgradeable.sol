@@ -19,6 +19,7 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
         abi.encode(uint256(keccak256("advanced.token.fee.storage")) - 1)
     );
 
+    /// @custom:storage-location erc7201:advanced.token.fee.storage
     struct FeeStorage {
         uint256 fee;                          // basis points (0–999)
         address feeCollector;

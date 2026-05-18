@@ -17,6 +17,7 @@ abstract contract ERC20RestrictedUpgradeable is Initializable, AccessControlUpgr
         abi.encode(uint256(keccak256("advanced.token.restricted.storage")) - 1)
     );
 
+    /// @custom:storage-location erc7201:advanced.token.restricted.storage
     struct RestrictedStorage {
         mapping(address account => bool blocked) blocked;
     }

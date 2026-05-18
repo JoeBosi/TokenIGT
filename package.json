@@ -18,6 +18,7 @@
     "roles:list": "hardhat run scripts/roles/list_roles.ts"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^3.0.2",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/hardhat-upgrades": "^3.0.0",
     "@typechain/ethers-v6": "^0.5.0",

@@ -43,26 +43,16 @@ contract Token is
     // ========================================
     
     /**
-     * @dev Emitted when a critical operation starts
+     * @dev Emitted when an operation is logged (consolidated start/complete)
      */
-    event OperationStarted(
+    event OperationLogged(
         bytes32 indexed operationId,
         string operationType,
         address indexed executor,
-        uint256 timestamp,
-        bytes data
-    );
-    
-    /**
-     * @dev Emitted when a critical operation completes
-     */
-    event OperationCompleted(
-        bytes32 indexed operationId,
-        string operationType,
-        address indexed executor,
-        uint256 timestamp,
         bool success,
-        bytes result
+        bytes data,
+        bytes result,
+        uint256 timestamp
     );
     
     /**
@@ -152,8 +142,8 @@ contract Token is
     event HealthCheck(
         uint256 timestamp,
         uint256 totalSupply,
-        uint256 activeUsers,
-        uint256 totalTransactions,
+        bool isPaused,
+        uint256 currentFee,
         address indexed checker
     );
     
@@ -222,8 +212,6 @@ contract Token is
      * @param amount Amount to mint
      */
     function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
-        bytes32 operationId = _emitOperationStart("MINT", msg.sender, abi.encode(to, amount));
-        
         uint256 totalSupplyBefore = totalSupply();
         
         ERC20Upgradeable._mint(to, amount);
@@ -239,7 +227,7 @@ contract Token is
             _blockTimestamp()
         );
         
-        _emitOperationComplete(operationId, "MINT", msg.sender, true, abi.encode(totalSupplyAfter));
+        _emitOperation("MINT", msg.sender, abi.encode(to, amount), true, abi.encode(totalSupplyAfter));
     }
 
     /**
@@ -248,8 +236,6 @@ contract Token is
      * @param amount Amount to burn
      */
     function burn(address from, uint256 amount) public onlyRole(BURNER_ROLE) {
-        bytes32 operationId = _emitOperationStart("BURN", msg.sender, abi.encode(from, amount));
-        
         uint256 totalSupplyBefore = totalSupply();
         uint256 balanceBefore = balanceOf(from);
         
@@ -269,29 +255,25 @@ contract Token is
             _blockTimestamp()
         );
         
-        _emitOperationComplete(operationId, "BURN", msg.sender, true, abi.encode(totalSupplyAfter));
+        _emitOperation("BURN", msg.sender, abi.encode(from, amount), true, abi.encode(totalSupplyAfter));
     }
 
     /**
      * @notice Pause all transfers
      */
     function pause() public onlyRole(PAUSER_ROLE) {
-        bytes32 operationId = _emitOperationStart("PAUSE", msg.sender, abi.encode(true));
-        
         _pause();
         emit PauseOperationDebug(true, msg.sender, _blockTimestamp());
-        _emitOperationComplete(operationId, "PAUSE", msg.sender, true, abi.encode(true));
+        _emitOperation("PAUSE", msg.sender, abi.encode(true), true, abi.encode(true));
     }
 
     /**
      * @notice Unpause all transfers
      */
     function unpause() public onlyRole(PAUSER_ROLE) {
-        bytes32 operationId = _emitOperationStart("UNPAUSE", msg.sender, abi.encode(false));
-        
         _unpause();
         emit PauseOperationDebug(false, msg.sender, _blockTimestamp());
-        _emitOperationComplete(operationId, "UNPAUSE", msg.sender, true, abi.encode(false));
+        _emitOperation("UNPAUSE", msg.sender, abi.encode(false), true, abi.encode(false));
     }
 
     /**
@@ -299,8 +281,6 @@ contract Token is
      * @param account Address to freeze
      */
     function freeze(address account) public onlyRole(FREEZER_ROLE) {
-        bytes32 operationId = _emitOperationStart("FREEZE", msg.sender, abi.encode(account));
-        
         uint256 frozenBefore = frozenOf(account);
         
         freezeAll(account);
@@ -315,7 +295,7 @@ contract Token is
             _blockTimestamp()
         );
         
-        _emitOperationComplete(operationId, "FREEZE", msg.sender, true, abi.encode(frozenAfter));
+        _emitOperation("FREEZE", msg.sender, abi.encode(account), true, abi.encode(frozenAfter));
     }
 
     
@@ -324,11 +304,9 @@ contract Token is
      * @param account Address to block
      */
     function blockAddress(address account) public onlyRole(BLOCKER_ROLE) {
-        bytes32 operationId = _emitOperationStart("BLOCK", msg.sender, abi.encode(account, true));
-        
         blockUser(account);
         emit BlockOperationDebug(account, true, msg.sender, _blockTimestamp());
-        _emitOperationComplete(operationId, "BLOCK", msg.sender, true, abi.encode(true));
+        _emitOperation("BLOCK", msg.sender, abi.encode(account, true), true, abi.encode(true));
     }
 
     /**
@@ -336,11 +314,9 @@ contract Token is
      * @param account Address to unblock
      */
     function unblock(address account) public onlyRole(BLOCKER_ROLE) {
-        bytes32 operationId = _emitOperationStart("UNBLOCK", msg.sender, abi.encode(account, false));
-        
         resetUser(account);
         emit BlockOperationDebug(account, false, msg.sender, _blockTimestamp());
-        _emitOperationComplete(operationId, "UNBLOCK", msg.sender, true, abi.encode(false));
+        _emitOperation("UNBLOCK", msg.sender, abi.encode(account, false), true, abi.encode(false));
     }
 
     /**
@@ -370,25 +346,24 @@ contract Token is
     }
 
     /**
+     * @dev Centralized security checks (BLOCK + FREEZE)
+     * Skips checks for mint/burn (from or to == address(0))
+     */
+    function _runSecurityChecks(address from, address to) private view {
+        if (from == address(0) || to == address(0)) return;
+        if (isBlocked(from) || isBlocked(to)) revert AccountBlocked();
+        if (isFrozen(from) || isFrozen(to)) revert AccountFrozen();
+    }
+
+    /**
      * @dev Override _update to implement canonical order of checks
      * Order: PAUSE -> BLOCK -> FREEZE -> FEE -> SETTLEMENT
      */
     function _update(address from, address to, uint256 value) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) {
-        // 1. PAUSE check (from ERC20PausableUpgradeable via whenNotPaused modifier)
+        // 1. PAUSE check (from ERC20PausableUpgradeable via super._update)
         
-        // 2. BLOCK check (only for transfers, not mint/burn)
-        if (from != address(0) && to != address(0)) {
-            if (isBlocked(from) || isBlocked(to)) {
-                revert AccountBlocked();
-            }
-        }
-        
-        // 3. FREEZE check (only for transfers, not mint/burn)
-        if (from != address(0) && to != address(0)) {
-            if (isFrozen(from) || isFrozen(to)) {
-                revert AccountFrozen();
-            }
-        }
+        // 2 + 3. BLOCK + FREEZE checks
+        _runSecurityChecks(from, to);
         
         // 4. FEE check (only for transfers, not mint/burn)
         if (from != address(0) && to != address(0)) {
@@ -434,10 +409,10 @@ contract Token is
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 
     /**
-     * @dev Version with all 9 security and observability fixes
+     * @dev Version with consolidated operations and refactored security checks
      */
     function version() public pure returns (string memory) {
-        return "1.6.3-security-fixes";
+        return "1.7.0-refactor";
     }
 
     // ========================================
@@ -459,19 +434,18 @@ contract Token is
     }
 
     /**
-     * @dev Emit operation start event
+     * @dev Emit operation log event (consolidated)
      */
-    function _emitOperationStart(string memory operationType, address executor, bytes memory data) internal returns (bytes32) {
+    function _emitOperation(
+        string memory operationType,
+        address executor,
+        bytes memory data,
+        bool success,
+        bytes memory result
+    ) internal returns (bytes32) {
         bytes32 operationId = _generateOperationId(operationType, executor);
-        emit OperationStarted(operationId, operationType, executor, _blockTimestamp(), data);
+        emit OperationLogged(operationId, operationType, executor, success, data, result, _blockTimestamp());
         return operationId;
-    }
-
-    /**
-     * @dev Emit operation completion event
-     */
-    function _emitOperationComplete(bytes32 operationId, string memory operationType, address executor, bool success, bytes memory result) internal {
-        emit OperationCompleted(operationId, operationType, executor, _blockTimestamp(), success, result);
     }
 
     /**
@@ -486,27 +460,20 @@ contract Token is
      * @notice Comprehensive health check function
      * @return success Whether the health check passed
      * @return totalSupply Current total supply
-     * @return activeUsers Number of addresses with non-zero balance
      * @return isPaused Current pause status
      * @return currentFee Current fee in basis points
      */
     function healthCheck() public view returns (
         bool success,
         uint256 totalSupply,
-        uint256 activeUsers,
         bool isPaused,
-        uint256 currentFee,
-        address feeCollector
+        uint256 currentFee
     ) {
         // In view functions we can't use try/catch, so we assume success
         // unless there are obvious issues
         totalSupply = this.totalSupply();
         isPaused = this.paused();
         currentFee = this.fee();
-        feeCollector = this.feeCollector();
-
-        // Count active users (simplified - in production would use storage optimization)
-        activeUsers = 1; // At least the deployer has tokens
 
         success = true;
     }
@@ -515,13 +482,13 @@ contract Token is
      * @notice Emit health check event
      */
     function emitHealthCheck() public {
-        (bool success, uint256 totalSupply, uint256 activeUsers, bool isPaused, uint256 currentFee, address feeCollector) = healthCheck();
+        (, uint256 totalSupply, bool isPaused, uint256 currentFee) = healthCheck();
 
         emit HealthCheck(
             _blockTimestamp(),
             totalSupply,
-            activeUsers,
-            0, // totalTransactions would need tracking storage
+            isPaused,
+            currentFee,
             msg.sender
         );
     }
@@ -583,18 +550,7 @@ contract Token is
      * Used by EIP-3009 and ERC-1363 to bypass fees but not security
      */
     function _updateWithoutFee(address from, address to, uint256 value) internal {
-        // Security checks for transfers (not mint/burn)
-        if (from != address(0) && to != address(0)) {
-            // BLOCK check
-            if (isBlocked(from) || isBlocked(to)) {
-                revert AccountBlocked();
-            }
-            // FREEZE check
-            if (isFrozen(from) || isFrozen(to)) {
-                revert AccountFrozen();
-            }
-        }
-        // PAUSE check via ERC20Pausable and transfer
+        _runSecurityChecks(from, to);
         super._update(from, to, value);
     }
 

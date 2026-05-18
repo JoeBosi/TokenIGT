@@ -1,0 +1,27 @@
+[profile.default]
+src = "contracts"
+test = "test/foundry"
+out = "artifacts"
+libs = ["node_modules", "lib"]
+remappings = [
+    "@openzeppelin/=node_modules/@openzeppelin/",
+    "hardhat/=node_modules/hardhat/",
+]
+
+# Fuzzing configuration for coverage targets
+[fuzz]
+runs = 1000
+max_test_rejects = 65536
+dictionary_weight = 40
+include_storage = true
+include_push_bytes = true
+
+# Invariant testing configuration
+[invariant]
+runs = 1000
+depth = 100
+fail_on_revert = false
+call_override = false
+shrink_sequence = true
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

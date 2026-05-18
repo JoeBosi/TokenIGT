@@ -17,6 +17,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1)
     );
 
+    /// @custom:storage-location erc7201:advanced.token.eip3009.storage
     struct EIP3009Storage {
         mapping(address authorizer => mapping(bytes32 nonce => bool used)) authorizationState;
     }

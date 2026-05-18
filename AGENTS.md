@@ -112,6 +112,11 @@ project-root/
 │       ├── upgrade.compatibility.spec.ts  # V2 → V3 mantenendo layout
 │       └── storage.layout.spec.ts         # validazione namespaced layout
 │
+├── test/foundry/                          # Foundry fuzz & invariant tests
+│   ├── Token.t.sol                        # Suite principale Foundry
+│   ├── TokenHandler.sol                   # Handler per stateful fuzzing
+│   └── UUPSProxy.sol                      # Proxy minimal per test
+│
 ├── abi/                                   # generato automaticamente post-compile
 │   ├── Token.json
 │   ├── TokenV2.json
@@ -334,6 +339,20 @@ In `test/features/token.interactions.spec.ts`:
 - **100%** su statements, branches, functions per i moduli custom (Fee, Freezable, Restricted, EIP-3009, Recoverable).
 - **≥ 90%** sul contratto principale `Token.sol`.
 - Per i moduli ereditati OZ è sufficiente happy path + revert path principale.
+
+### 6.6 Test Foundry (hardhat-foundry)
+
+Test aggiuntivi in `test/foundry/` per fuzzing e invariant testing:
+
+- `Token.t.sol` — 38 test: fuzz transfer con fee, freeze, mint, burn, pause, block, whitelist, health check
+- `TokenHandler.sol` — Handler per stateful fuzzing
+- `UUPSProxy.sol` — Proxy minimal per test UUPS
+
+**Coverage Foundry attuale:**
+- TokenHandler: 97.65% line, 98.78% branch
+- UUPSProxy: 100% line
+
+Eseguire con: `forge test` e `forge coverage`
 
 ---
 

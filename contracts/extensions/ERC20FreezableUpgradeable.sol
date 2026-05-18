@@ -17,6 +17,7 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
         abi.encode(uint256(keccak256("advanced.token.freezable.storage")) - 1)
     );
 
+    /// @custom:storage-location erc7201:advanced.token.freezable.storage
     struct FreezableStorage {
         mapping(address account => uint256 frozen) frozen;
     }
