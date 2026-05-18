@@ -96,7 +96,7 @@ describe("Token - Comprehensive Upgrade Tests", function () {
       // Set up restrictions in V1
       await token.transfer(addr1.address, ethers.parseEther("1000"));
       await token.connect(owner).freeze(addr1.address);
-      await token.connect(owner).block(addr2.address);
+      await token.connect(owner).blockAddress(addr2.address);
       await token.connect(owner).pause();
       
       // V1 -> V2

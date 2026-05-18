@@ -163,12 +163,12 @@ describe("Token - Access Control", function () {
     it("Should allow blocker to block", async function () {
       const BLOCKER_ROLE = await token.BLOCKER_ROLE();
       await token.grantRole(BLOCKER_ROLE, blocker.address);
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.true;
     });
 
     it("Should not allow non-blocker to block", async function () {
-      await expect(token.connect(addr1).block(addr1.address))
+      await expect(token.connect(addr1).blockAddress(addr1.address))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
   });

@@ -133,7 +133,7 @@ describe("Token - Basic Edge Cases", function () {
       await token.grantRole(await token.BLOCKER_ROLE(), owner.address);
       
       // Block account
-      await token.connect(owner).block(addr1.address);
+      await token.connect(owner).blockAddress(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.true;
       
       // Should not be able to transfer to blocked account
@@ -206,7 +206,7 @@ describe("Token - Basic Edge Cases", function () {
       
       // Freeze and block account
       await token.connect(owner).freeze(addr1.address);
-      await token.connect(owner).block(addr1.address);
+      await token.connect(owner).blockAddress(addr1.address);
       
       // Blocked should prevent transfer
       await expect(token.connect(addr1).transfer(addr2.address, 100))
@@ -254,7 +254,7 @@ describe("Token - Basic Edge Cases", function () {
       await token.connect(owner).unfreeze(addr1.address);
       
       // Block account
-      await token.connect(owner).block(addr1.address);
+      await token.connect(owner).blockAddress(addr1.address);
       
       // Should not be able to transfer when blocked
       await expect(token.connect(addr1).transfer(addr2.address, 100))

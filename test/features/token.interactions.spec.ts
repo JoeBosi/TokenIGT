@@ -43,7 +43,7 @@ describe("Token - Feature Interactions", function () {
   });
 
   it("Block should block transfer even when paused", async function () {
-    await token.connect(blocker).block(addr1.address);
+    await token.connect(blocker).blockAddress(addr1.address);
     await token.connect(pauser).pause();
     await expect(token.transfer(addr1.address, 100)).to.be.revertedWithCustomError(token, "AccountBlocked");
   });
@@ -52,7 +52,7 @@ describe("Token - Feature Interactions", function () {
     await token.grantRole(await token.BURNER_ROLE(), owner.address);
     await token.transfer(addr1.address, 100);
     await token.connect(freezer).freeze(addr1.address);
-    await token.connect(blocker).block(addr1.address);
+    await token.connect(blocker).blockAddress(addr1.address);
     await expect(token.burn(addr1.address, 50)).to.not.be.reverted;
   });
 });

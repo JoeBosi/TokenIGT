@@ -64,7 +64,7 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      * @param account The address to freeze
      * @param amount The amount to freeze (type(uint256).max for "frozen all")
      */
-    function freeze(address account, uint256 amount) public onlyRole(FREEZER_ROLE) {
+    function freeze(address account, uint256 amount) public virtual onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
         $.frozen[account] = amount;
     }
@@ -73,7 +73,7 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      * @notice Freeze all tokens for an account
      * @param account The address to freeze
      */
-    function freezeAll(address account) public onlyRole(FREEZER_ROLE) {
+    function freezeAll(address account) public virtual onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
         $.frozen[account] = type(uint256).max;
         emit Frozen(account);

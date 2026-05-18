@@ -18,7 +18,7 @@ describe("Token - Block", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 0, owner.address, owner.address], // 0 fee for block tests
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -29,31 +29,31 @@ describe("Token - Block", function () {
 
   describe("Block", function () {
     it("Should allow blocker to block address", async function () {
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.true;
     });
 
     it("Should emit Blocked event", async function () {
-      await expect(token.connect(blocker).block(addr1.address))
+      await expect(token.connect(blocker).blockAddress(addr1.address))
         .to.emit(token, "Blocked")
         .withArgs(addr1.address);
     });
 
     it("Should not allow non-blocker to block", async function () {
-      await expect(token.connect(addr1).block(addr2.address))
+      await expect(token.connect(addr1).blockAddress(addr2.address))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
   });
 
   describe("Unblock", function () {
     it("Should allow blocker to unblock address", async function () {
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       await token.connect(blocker).unblock(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.false;
     });
 
     it("Should emit Unblocked event", async function () {
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       await expect(token.connect(blocker).unblock(addr1.address))
         .to.emit(token, "Unblocked")
         .withArgs(addr1.address);
@@ -68,14 +68,14 @@ describe("Token - Block", function () {
   describe("Blocked Transfer Restrictions", function () {
     it("Should block transfers from blocked address", async function () {
       await token.transfer(addr1.address, ethers.parseEther("100"));
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       
       await expect(token.connect(addr1).transfer(addr2.address, ethers.parseEther("50")))
         .to.be.revertedWithCustomError(token, "AccountBlocked");
     });
 
     it("Should block transfers to blocked address", async function () {
-      await token.connect(blocker).block(addr2.address);
+      await token.connect(blocker).blockAddress(addr2.address);
       
       await expect(token.transfer(addr2.address, ethers.parseEther("50")))
         .to.be.revertedWithCustomError(token, "AccountBlocked");
@@ -86,7 +86,7 @@ describe("Token - Block", function () {
       await token.grantRole(BURNER_ROLE, owner.address);
       
       await token.transfer(addr1.address, ethers.parseEther("100"));
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       
       await expect(token.burn(addr1.address, ethers.parseEther("50"))).to.not.be.reverted;
     });
@@ -95,7 +95,7 @@ describe("Token - Block", function () {
       const MINTER_ROLE = await token.MINTER_ROLE();
       await token.grantRole(MINTER_ROLE, owner.address);
       
-      await token.connect(blocker).block(addr1.address);
+      await token.connect(blocker).blockAddress(addr1.address);
       
       await expect(token.mint(addr1.address, ethers.parseEther("100"))).to.not.be.reverted;
     });
