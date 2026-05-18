@@ -217,19 +217,20 @@ Questo file elenca tutti i documenti che devono essere riarmonizzati quando si m
 
 ## File Priorità Alta (sempre verificare)
 
-1. `AGENTS.md` - Contiene vincoli operativi fondamentali
-2. `.env.example` - Template per configurazione
-3. `README.md` - Documentazione utente
-4. `test-results.json` - Stato test attuale
+1. `TODO.md` - Task pendenti e progress tracking
+2. `AGENTS.md` - Contiene vincoli operativi fondamentali
+3. `.env.example` - Template per configurazione
+4. `README.md` - Documentazione utente
+5. `test-results.json` - Stato test attuale
 
 ## File Priorità Media (verificare per tipo modifica)
 
-5. `deployments/*` - Indirizzi deploy
-6. `abi/` - ABI contratti
-7. `.openzeppelin/*` - Storage layout OZ
+6. `deployments/*` - Indirizzi deploy
+7. `abi/` - ABI contratti
+8. `.openzeppelin/*` - Storage layout OZ
 
 ## File Priorità Bassa (verificare occasionalmente)
 
-8. `hardhat.config.ts` - Configurazione build
-9. `tsconfig.json` - Configurazione TypeScript
-10. `.gitignore` - Se nuovi file generati
+9. `hardhat.config.ts` - Configurazione build
+10. `tsconfig.json` - Configurazione TypeScript
+11. `.gitignore` - Se nuovi file generati
