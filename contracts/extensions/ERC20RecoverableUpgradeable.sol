@@ -69,11 +69,18 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
             revert InvalidRecipient();
         }
 
-        (bool success, bytes memory data) = nft.call(
-            abi.encodeWithSignature("transferFrom(address,address,uint256)", address(this), to, tokenId)
+        // Use safeTransferFrom which is the ERC-721 standard for secure transfers
+        // Note: This requires the NFT contract to implement IERC721
+        (bool success, ) = nft.call(
+            abi.encodeWithSignature(
+                "safeTransferFrom(address,address,uint256)",
+                address(this),
+                to,
+                tokenId
+            )
         );
 
-        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
+        if (!success) {
             revert TransferFailed();
         }
     }

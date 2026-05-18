@@ -27,6 +27,7 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
 
     event Frozen(address indexed account);
     event Unfrozen(address indexed account);
+    event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount);
 
     function __ERC20Freezable_init() internal onlyInitializing {
         __AccessControl_init();
@@ -66,7 +67,9 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      */
     function freeze(address account, uint256 amount) public virtual onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
+        uint256 previousAmount = $.frozen[account];
         $.frozen[account] = amount;
+        emit FrozenAmountChanged(account, previousAmount, amount);
     }
 
     /**
@@ -75,8 +78,10 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      */
     function freezeAll(address account) public virtual onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
+        uint256 previousAmount = $.frozen[account];
         $.frozen[account] = type(uint256).max;
         emit Frozen(account);
+        emit FrozenAmountChanged(account, previousAmount, type(uint256).max);
     }
 
     /**
@@ -85,8 +90,10 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
      */
     function unfreeze(address account) public virtual onlyRole(FREEZER_ROLE) {
         FreezableStorage storage $ = _getFreezableStorage();
+        uint256 previousAmount = $.frozen[account];
         $.frozen[account] = 0;
         emit Unfrozen(account);
+        emit FrozenAmountChanged(account, previousAmount, 0);
     }
 
     /**
@@ -102,36 +109,9 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
             revert InvalidFreezeAmount();
         }
         
-        $.frozen[account] = currentFrozen - amount;
-    }
-
-    /**
-     * @dev Hook that is called before any transfer of tokens
-     * Checks if the sender has sufficient unfrozen balance
-     * BURNER_ROLE can override this check
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 value) internal virtual {
-        // Skip check for mint/burn (from or to == address(0))
-        if (from == address(0) || to == address(0)) {
-            return;
-        }
-
-        // Check if sender is frozen
-        uint256 frozen = frozenOf(from);
-        if (frozen != 0) {
-            uint256 balance = balanceOf(from);
-            uint256 available = frozen >= balance ? 0 : balance - frozen;
-            
-            if (value > available) {
-                revert AccountFrozen();
-            }
-        }
-
-        // Check if recipient is frozen
-        uint256 recipientFrozen = frozenOf(to);
-        if (recipientFrozen != 0) {
-            revert AccountFrozen();
-        }
+        uint256 newAmount = currentFrozen - amount;
+        $.frozen[account] = newAmount;
+        emit FrozenAmountChanged(account, currentFrozen, newAmount);
     }
 
     function _getFreezableStorage() private pure returns (FreezableStorage storage $) {

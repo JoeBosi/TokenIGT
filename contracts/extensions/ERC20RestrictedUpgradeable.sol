@@ -21,7 +21,6 @@ abstract contract ERC20RestrictedUpgradeable is Initializable, AccessControlUpgr
         mapping(address account => bool blocked) blocked;
     }
 
-    error AddressBlocked();
     error AccountBlocked();
 
     event Blocked(address indexed account);
@@ -61,22 +60,6 @@ abstract contract ERC20RestrictedUpgradeable is Initializable, AccessControlUpgr
         RestrictedStorage storage $ = _getRestrictedStorage();
         $.blocked[account] = false;
         emit Unblocked(account);
-    }
-
-    /**
-     * @dev Hook that is called before any transfer of tokens
-     * Checks if either the sender or recipient is blocked
-     */
-    function _beforeTokenTransfer(address from, address to, uint256) internal virtual {
-        // Skip check for mint/burn (from or to == address(0))
-        if (from == address(0) || to == address(0)) {
-            return;
-        }
-
-        RestrictedStorage storage $ = _getRestrictedStorage();
-        if ($.blocked[from] || $.blocked[to]) {
-            revert AddressBlocked();
-        }
     }
 
     function _getRestrictedStorage() private pure returns (RestrictedStorage storage $) {

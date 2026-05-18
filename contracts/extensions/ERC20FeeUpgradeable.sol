@@ -28,6 +28,10 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
     error FeeExceedsMaximum(uint256 fee, uint256 maxFee);
     error InvalidFeeCollector();
 
+    event FeeUpdated(uint256 previousFee, uint256 newFee);
+    event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector);
+    event FeeFreeStatusChanged(address indexed account, bool isFeeFree);
+
     function __ERC20Fee_init(uint256 initialFee, address feeCollector_) internal onlyInitializing {
         __AccessControl_init();
         
@@ -85,7 +89,9 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
         }
         
         FeeStorage storage $ = _getFeeStorage();
+        uint256 previousFee = $.fee;
         $.fee = newFee;
+        emit FeeUpdated(previousFee, newFee);
     }
 
     /**
@@ -98,7 +104,9 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
         }
         
         FeeStorage storage $ = _getFeeStorage();
+        address previousCollector = $.feeCollector;
         $.feeCollector = collector;
+        emit FeeCollectorUpdated(previousCollector, collector);
     }
 
     /**
@@ -108,6 +116,7 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
     function addFeeFree(address account) public onlyRole(FEE_ADMIN_ROLE) {
         FeeStorage storage $ = _getFeeStorage();
         $.isFeeFree[account] = true;
+        emit FeeFreeStatusChanged(account, true);
     }
 
     /**
@@ -117,6 +126,7 @@ abstract contract ERC20FeeUpgradeable is Initializable, AccessControlUpgradeable
     function removeFeeFree(address account) public onlyRole(FEE_ADMIN_ROLE) {
         FeeStorage storage $ = _getFeeStorage();
         $.isFeeFree[account] = false;
+        emit FeeFreeStatusChanged(account, false);
     }
 
     /**

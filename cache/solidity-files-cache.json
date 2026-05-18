@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/giuseppe/Developer/TokenIGT/contracts/Token.sol": {
-      "lastModificationDate": 1779087800434,
-      "contentHash": "cd6dab85162441aedc7c5308cf63bf68",
+      "lastModificationDate": 1779089921381,
+      "contentHash": "ad3c31c3b7d4b6e9c2279efbccdf6098",
       "sourceName": "contracts/Token.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -52,8 +52,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20FreezableUpgradeable.sol": {
-      "lastModificationDate": 1779049691842,
-      "contentHash": "f9d2203328aaf6c52c3cd9a686781929",
+      "lastModificationDate": 1779089882530,
+      "contentHash": "82576c0756ec75bce3c4439a257d9573",
       "sourceName": "contracts/extensions/ERC20FreezableUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -92,8 +92,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20RestrictedUpgradeable.sol": {
-      "lastModificationDate": 1779047289583,
-      "contentHash": "13474b61a2252a6d6ca5bb193b8d2cd5",
+      "lastModificationDate": 1779089891005,
+      "contentHash": "e4f689d41604dfd56ee59025085ac679",
       "sourceName": "contracts/extensions/ERC20RestrictedUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -132,8 +132,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20FeeUpgradeable.sol": {
-      "lastModificationDate": 1779046201179,
-      "contentHash": "737f7afb7ca700b4fc75106d56e109f4",
+      "lastModificationDate": 1779089830167,
+      "contentHash": "1d33a0091c7270d458b000a2e3854cfe",
       "sourceName": "contracts/extensions/ERC20FeeUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -172,8 +172,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20EIP3009Upgradeable.sol": {
-      "lastModificationDate": 1779046796866,
-      "contentHash": "25140a015bab6a540b2b74877ed2122b",
+      "lastModificationDate": 1779089840802,
+      "contentHash": "97ae5460f46c00e6fffd6b44cdbc60e7",
       "sourceName": "contracts/extensions/ERC20EIP3009Upgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -257,8 +257,8 @@
       ]
     },
     "/Users/giuseppe/Developer/TokenIGT/contracts/extensions/ERC20RecoverableUpgradeable.sol": {
-      "lastModificationDate": 1779046084755,
-      "contentHash": "c0071a3ed90817f8678f136ae1e639ae",
+      "lastModificationDate": 1779089851988,
+      "contentHash": "fd27c8b140f1e8bcbb2cd8740553d280",
       "sourceName": "contracts/extensions/ERC20RecoverableUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.28",

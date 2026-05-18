@@ -33,6 +33,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         );
 
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
+    event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
 
     function __ERC20EIP3009_init() internal onlyInitializing {
         // EIP712 is initialized by ERC20Permit, no need to initialize again
@@ -146,7 +147,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         }
 
         $.authorizationState[authorizer][nonce] = true;
-        emit AuthorizationUsed(authorizer, nonce);
+        emit AuthorizationCanceled(authorizer, nonce);
     }
 
     /**

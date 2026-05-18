@@ -429,25 +429,15 @@ contract Token is
     }
 
     /**
-     * @dev Hook override required by base contracts (ERC20Freezable, ERC20Restricted)
-     * Note: In OZ v5 this hook is NOT automatically called by _update
-     * BLOCK and FREEZE checks are implemented directly in _update for proper ordering
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 value) internal override(ERC20FreezableUpgradeable, ERC20RestrictedUpgradeable) {
-        // Hooks not used in OZ v5 - checks implemented directly in _update
-        // Keeping override to satisfy compiler requirements
-    }
-
-    /**
      * @dev Authorize upgrade (UUPS)
      */
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 
     /**
-     * @dev Fixed version check for upgrade
+     * @dev Version with all 9 security and observability fixes
      */
     function version() public pure returns (string memory) {
-        return "1.6.2-cleanup-final";
+        return "1.6.3-security-fixes";
     }
 
     // ========================================
@@ -589,20 +579,39 @@ contract Token is
     }
 
     /**
+     * @dev Update without fee but WITH security checks (PAUSE/BLOCK/FREEZE)
+     * Used by EIP-3009 and ERC-1363 to bypass fees but not security
+     */
+    function _updateWithoutFee(address from, address to, uint256 value) internal {
+        // Security checks for transfers (not mint/burn)
+        if (from != address(0) && to != address(0)) {
+            // BLOCK check
+            if (isBlocked(from) || isBlocked(to)) {
+                revert AccountBlocked();
+            }
+            // FREEZE check
+            if (isFrozen(from) || isFrozen(to)) {
+                revert AccountFrozen();
+            }
+        }
+        // PAUSE check via ERC20Pausable and transfer
+        super._update(from, to, value);
+    }
+
+    /**
      * @dev Implement _executeTransfer for EIP-3009 module (no fees)
-     * Uses direct ERC20 transfer to bypass fee logic
+     * Uses _updateWithoutFee to bypass fee logic but keep security checks
      */
     function _executeTransfer(address from, address to, uint256 value) internal override {
-        // Direct transfer without fees for EIP-3009 authorized transfers
-        ERC20Upgradeable._update(from, to, value);
+        _updateWithoutFee(from, to, value);
     }
 
     /**
      * @dev Implement _transfer1363 for ERC-1363 module (no fees)
+     * Uses _updateWithoutFee to bypass fee logic but keep security checks
      */
     function _transfer1363(address from, address to, uint256 value) internal override {
-        // Direct transfer without fees for ERC-1363
-        ERC20Upgradeable._update(from, to, value);
+        _updateWithoutFee(from, to, value);
     }
 
     /**
