@@ -75,6 +75,7 @@ Questo file elenca tutti i documenti che devono essere riarmonizzati quando si m
 - Nuovi test suite in file esistente
 - Fix test falliti
 - Aumento coverage
+- Nuovi test Foundry (`test/foundry/*.sol`)
 
 ---
 
