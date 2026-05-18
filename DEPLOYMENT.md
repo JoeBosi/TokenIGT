@@ -2,16 +2,28 @@
 
 ## Current Deployments
 
-### Amoy Testnet (Active)
+### Amoy Testnet (Active) - v1.6.3-security-fixes
+
+| Contract | Address | Version |
+|----------|---------|---------|
+| **Token Proxy** | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` | 1.6.3-security-fixes |
+| **Implementation V1** | `0xeD7741db36Cf22e9D339A48e767313f33EFAb360` | 1.6.3-security-fixes |
+| **Implementation V2** | Upgraded from V1 | v2 initialized |
+
+**Explorer Links:**
+- Proxy: https://amoy.polygonscan.com/address/0x55F7DaBE49cc7947D6ac12014Af40305176581eB
+
+### Previous Deployment - v1.6.2-cleanup-final (Deprecated)
 
 | Contract | Address | Version |
 |----------|---------|---------|
 | **Token Proxy** | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` | 1.6.2-cleanup-final |
 | **Implementation V1** | `0xaf5c904Aab2dd9A30BF5a76b9913cBafdF218BFf` | 1.6.2-cleanup-final |
-| **Implementation V2** | Deployed via upgrade | - |
 
 **Explorer Links:**
 - Proxy: https://amoy.polygonscan.com/address/0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab
+
+**Note:** v1.6.2 had security issues (EIP-3009/ERC-1363 bypassing PAUSE/BLOCK/FREEZE). Use v1.6.3.
 
 ### Token Details (Amoy)
 

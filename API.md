@@ -129,6 +129,23 @@ event PauseOperationDebug(bool paused, address indexed executor, uint256 timesta
 event HealthCheck(uint256 indexed checkId, uint256 totalSupply, uint256 activeUsers, bool isPaused, uint256 currentFee, address feeCollector, uint256 timestamp)
 ```
 
+### State Change Events (v1.6.3+)
+```solidity
+// Freeze events
+event Frozen(address indexed account)
+event Unfrozen(address indexed account)
+event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount)
+
+// Fee admin events
+event FeeUpdated(uint256 previousFee, uint256 newFee)
+event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector)
+event FeeFreeStatusChanged(address indexed account, bool isFeeFree)
+
+// EIP-3009 events
+event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)
+event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce)
+```
+
 ### Role Events
 ```solidity
 event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)

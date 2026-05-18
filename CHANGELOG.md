@@ -2,7 +2,41 @@
 
 All notable changes to the IGE Token project.
 
+## [1.6.3-security-fixes] - 2025-05-18
+
+### Security (Critical)
+- **CRITICAL FIX**: EIP-3009 and ERC-1363 now respect PAUSE/BLOCK/FREEZE restrictions
+  - Added `_updateWithoutFee()` helper function for secure transfers without fees
+  - Previously, authorized transfers could bypass all security checks
+  - Now all transfers (even gasless/fee-less) must pass security validation
+
+### Added (Observability)
+- `FrozenAmountChanged` event in `ERC20FreezableUpgradeable`
+  - Emitted in: `freeze()`, `freezeAll()`, `unfreeze()`, `reduceFrozen()`
+  - Tracks previous and new frozen amounts
+- `FeeUpdated` event in `ERC20FeeUpgradeable` (tracks previous/new fee)
+- `FeeCollectorUpdated` event (tracks previous/new collector)
+- `FeeFreeStatusChanged` event (tracks whitelist changes)
+- `AuthorizationCanceled` event for EIP-3009 cancelAuthorization
+
+### Fixed
+- **recoverERC721**: Using `safeTransferFrom` instead of decoding bool from `transferFrom`
+- **AddressBlocked error**: Removed duplicate error, using only `AccountBlocked`
+- **Dead code**: Removed unused `_beforeTokenTransfer` hooks from extensions
+
+### Changed
+- Version consolidated to `1.6.3-security-fixes`
+- All 9 security/observability points addressed
+
+### Deployment
+- **Amoy Proxy:** `0x55F7DaBE49cc7947D6ac12014Af40305176581eB`
+- **Implementation:** `0xeD7741db36Cf22e9D339A48e767313f33EFAb360`
+- **Status:** All 162 local tests + 9/9 Amoy tests passing (100%)
+- **Upgrade:** V1 → V2 tested and working
+
 ## [1.6.2-cleanup-final] - 2025-05-18
+
+**⚠️ DEPRECATED:** This version has security issues (EIP-3009/ERC-1363 bypass PAUSE/BLOCK/FREEZE). Use v1.6.3.
 
 ### Added
 - Comprehensive monitoring system with 9 debug events

@@ -1,7 +1,9 @@
 # AGENTS.md — Specifica operativa per Copilot Agents
 ## Token ERC-20 avanzato — OpenZeppelin v5.6.1 (UUPS)
-**Versione:** 2.0 — revisione tecnica completa
-**Data:** 2026-05-17
+**Versione:** 2.1 — con fix sicurezza v1.6.3
+**Data:** 2026-05-18
+
+**Stato:** ✅ Tutti i 9 punti di sicurezza/observabilità completati e deployati su Amoy
 
 Questo file definisce **come gli agenti AI devono lavorare** per generare, testare, aggiornare e deployare il token ERC-20 avanzato.
 
@@ -423,7 +425,7 @@ function _update(address from, address to, uint256 value)
     // 1) BLOCK CHECK: nessun trasferimento da/verso indirizzi bloccati
     //    (vale anche per mint e burn — non si può mintare verso un blocked
     //     né bruciare da un blocked, altrimenti il blocco è aggirabile)
-    if (_isBlocked(from) || _isBlocked(to)) revert AddressBlocked();
+    if (_isBlocked(from) || _isBlocked(to)) revert AccountBlocked();
 
     // 2) FREEZE CHECK: il saldo non congelato deve coprire il trasferimento
     //    (NON si applica al mint perché from == address(0))
@@ -465,19 +467,45 @@ function _update(address from, address to, uint256 value)
 }
 ```
 
-### 8.2 Cap on-chain alla fee
+### 8.2 Cap on-chain alla fee e eventi (v1.6.3+)
 
 ```solidity
 uint16 public constant MAX_FEE_BASIS_POINTS = 999; // 9,99% massimo
 
-error FeeTooHigh(uint256 requested, uint16 maxAllowed);
+error FeeExceedsMaximum(uint256 fee, uint256 maxFee);
+error InvalidFeeCollector();
 
 function setFee(uint256 newFee) external onlyRole(FEE_ADMIN_ROLE) {
-    if (newFee > MAX_FEE_BASIS_POINTS) revert FeeTooHigh(newFee, MAX_FEE_BASIS_POINTS);
+    if (newFee > MAX_FEE_BASIS_POINTS) revert FeeExceedsMaximum(newFee, MAX_FEE_BASIS_POINTS);
     uint256 oldFee = _fee();
     _setFee(newFee);
     emit FeeUpdated(oldFee, newFee);
 }
+
+function setFeeCollector(address collector) external onlyRole(FEE_ADMIN_ROLE) {
+    if (collector == address(0)) revert InvalidFeeCollector();
+    address oldCollector = _feeCollector();
+    _setFeeCollector(collector);
+    emit FeeCollectorUpdated(oldCollector, collector);
+}
+
+function addFeeFree(address account) external onlyRole(FEE_ADMIN_ROLE) {
+    _setFeeFree(account, true);
+    emit FeeFreeStatusChanged(account, true);
+}
+
+function removeFeeFree(address account) external onlyRole(FEE_ADMIN_ROLE) {
+    _setFeeFree(account, false);
+    emit FeeFreeStatusChanged(account, false);
+}
+```
+
+**Eventi amministrazione fee (v1.6.3+):**
+
+```solidity
+event FeeUpdated(uint256 previousFee, uint256 newFee);
+event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector);
+event FeeFreeStatusChanged(address indexed account, bool isFeeFree);
 ```
 
 ### 8.3 Interazioni fee × firme off-chain (DA DOCUMENTARE NEL CONTRATTO)
@@ -535,6 +563,53 @@ Quando il contratto è in `paused == true`, le funzioni si comportano così (bes
 | funzioni `view` (`balanceOf`, `frozenOf`, `isBlocked`, …) | ❌ No | sola lettura |
 
 **Implementazione:** si eredita `ERC20PausableUpgradeable` di OZ 5.6.1, che override `_update` con `whenNotPaused`. Tutte le funzioni che passano da `_update` ereditano automaticamente il blocco. Le funzioni amministrative (recover, role management, configurazione fee/freeze/block, upgrade) restano **sempre** disponibili: questo è critico per gestire incidenti durante una pausa.
+
+---
+
+## 9.5 Fix di Sicurezza Critica (v1.6.3) — EIP-3009 e ERC-1363 bypassavano i controlli
+
+> **⚠️ BUG CRITICO RISOLTO in v1.6.3:**
+> 
+> In versioni precedenti (≤1.6.2), `transferWithAuthorization` (EIP-3009) e le funzioni ERC-1363 chiamavano `ERC20Upgradeable._update` **direttamente**, bypassando completamente:
+> - Il check PAUSE (da `ERC20PausableUpgradeable`)
+> - Il check BLOCK (da `ERC20RestrictedUpgradeable`)
+> - Il check FREEZE (da `ERC20FreezableUpgradeable`)
+>
+> **Conseguenza:** un account bloccato o congelato poteva comunque trasferire token via firma off-chain!
+
+### Soluzione implementata (v1.6.3)
+
+Aggiunta funzione helper `_updateWithoutFee` in `Token.sol` che:
+1. Esegue tutti i controlli di sicurezza (BLOCK, FREEZE)
+2. Chiama `super._update` che include il check PAUSE
+3. **Non** applica fee (per rispettare il design EIP-3009/ERC-1363)
+
+```solidity
+function _updateWithoutFee(address from, address to, uint256 value) internal {
+    // Security checks for transfers (not mint/burn)
+    if (from != address(0) && to != address(0)) {
+        // BLOCK check
+        if (isBlocked(from) || isBlocked(to)) {
+            revert AccountBlocked();
+        }
+        // FREEZE check
+        if (isFrozen(from) || isFrozen(to)) {
+            revert AccountFrozen();
+        }
+    }
+    // PAUSE check via ERC20Pausable and transfer
+    super._update(from, to, value);
+}
+```
+
+### Funzioni aggiornate
+
+| Funzione | Before (≤1.6.2) | After (v1.6.3+) |
+|---|---|---|
+| `_executeTransfer` (EIP-3009) | `ERC20Upgradeable._update` (no checks) | `_updateWithoutFee` (with checks) |
+| `_transfer1363` (ERC-1363) | `ERC20Upgradeable._update` (no checks) | `_updateWithoutFee` (with checks) |
+
+**NOTA:** Le funzioni EIP-3009 e ERC-1363 **bypassano ancora le fee** (per design), ma **NON bypassano più i controlli di sicurezza**.
 
 ---
 
@@ -628,13 +703,15 @@ struct FreezableStorage {
 | `unfreeze(address account)` | `external` | `FREEZER_ROLE` | Imposta `frozen[account] = 0`. |
 | `reduceFrozen(address account, uint256 amount)` | `external` | `FREEZER_ROLE` | Decrementa `frozen[account]` di `amount`. Revert se underflow. |
 
-**Eventi:**
+**Eventi (v1.6.3+):**
 
 ```solidity
-event Frozen(address indexed account, uint256 amount);
+event Frozen(address indexed account);
 event Unfrozen(address indexed account);
-event FrozenReduced(address indexed account, uint256 newAmount);
+event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount);
 ```
+
+**Note:** `FrozenAmountChanged` è emesso da tutte le operazioni di freeze/unfreeze/reduceFrozen con i valori before/after.
 
 **Errori custom:**
 
@@ -677,18 +754,20 @@ struct RestrictedStorage {
 | `blockUser(address account)` | `external` | `BLOCKER_ROLE` | `blocked[account] = true` |
 | `resetUser(address account)` | `external` | `BLOCKER_ROLE` | `blocked[account] = false` |
 
-**Eventi:**
+**Eventi (v1.6.3+):**
 
 ```solidity
-event UserBlocked(address indexed account);
-event UserReset(address indexed account);
+event Blocked(address indexed account);
+event Unblocked(address indexed account);
 ```
 
 **Errori custom:**
 
 ```solidity
-error AddressBlocked();
+error AccountBlocked();
 ```
+
+**Note:** In v1.6.3 `AddressBlocked` è stato rimosso (era duplicato), ora si usa solo `AccountBlocked`.
 
 **Hook integrato in `_update` (sezione 8.1, step 1):**
 

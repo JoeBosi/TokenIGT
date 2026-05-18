@@ -15,12 +15,14 @@ Advanced ERC-20 token with UUPS upgradeability, role-based access control, compr
 
 | | |
 |---|---|
-| **Proxy Address** | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` |
-| **Implementation** | `0xaf5c904Aab2dd9A30BF5a76b9913cBafdF218BFf` |
-| **Version** | `1.6.2-cleanup-final` |
+| **Proxy Address** | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` |
+| **Implementation** | `0xeD7741db36Cf22e9D339A48e767313f33EFAb360` |
+| **Version** | `1.6.3-security-fixes` |
 | **Network** | Amoy (Chain ID: 80002) |
-| **Status** | ✅ Fully Operational |
-| **Explorer** | [View on Amoy Polygonscan](https://amoy.polygonscan.com/address/0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab) |
+| **Status** | ✅ Fully Operational (9/9 tests) |
+| **Explorer** | [View on Amoy Polygonscan](https://amoy.polygonscan.com/address/0x55F7DaBE49cc7947D6ac12014Af40305176581eB) |
+
+**Previous Deployment:** `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` (v1.6.2-cleanup-final)
 
 **Deployment Files:** `deployments/amoy-fresh/`
 - `proxy.json` - Proxy configuration
@@ -29,9 +31,10 @@ Advanced ERC-20 token with UUPS upgradeability, role-based access control, compr
 - `test-results.json` - Test execution results
 
 ### Test Results
-- **Local Tests:** 162/162 passing 
-- **Amoy Tests:** 9/9 passing (100%) 
-- **Upgrade Test:** V1 → V2 successful 
+- **Local Tests:** 162/162 passing (100%)
+- **Amoy Tests:** 9/9 passing (100%)
+- **Upgrade Test:** V1 → V2 successful ✅
+- **Security Fixes:** 9/9 completed ✅ 
 
 ## 📦 Contract ABI
 

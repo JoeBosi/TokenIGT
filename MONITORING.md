@@ -4,7 +4,7 @@
 
 The IGT Token includes a comprehensive monitoring system designed for operational debugging and observability. This system provides detailed event tracking, health checks, and debug information for all critical operations.
 
-**Version:** `1.6.2-monitoring-enabled`
+**Version:** `1.6.3-security-fixes`
 
 ## Architecture
 
@@ -37,6 +37,13 @@ event HealthCheck(uint256 indexed checkId, uint256 totalSupply, uint256 activeUs
 
 // Error reporting
 event ErrorReport(bytes32 indexed operationId, string operationType, address executor, string errorMessage, uint256 timestamp);
+
+// State change events (v1.6.3+)
+event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount);
+event FeeUpdated(uint256 previousFee, uint256 newFee);
+event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector);
+event FeeFreeStatusChanged(address indexed account, bool isFeeFree);
+event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
 ```
 
 ## Usage
