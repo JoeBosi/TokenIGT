@@ -34,7 +34,8 @@ Aggiungere test per raggiungere line coverage ≥ 95% su `Token.sol`:
 
 ---
 
-**Stato attuale:**
-- ✅ 162 Hardhat tests passing
-- ✅ 38 Foundry tests passing
-- ⬜ Coverage: ~60% (target: 95%+ line, 90%+ branch)
+**Stato attuale (2026-06-02):**
+- ✅ 162 Hardhat tests passing (0 failed)
+- ✅ 38 Foundry tests passing — 23 unit + 9 fuzz + 6 invariant (0 failed)
+- ⬜ Coverage Foundry: 47.64% lines / 31.25% branches (target: 95%+ line, 90%+ branch)
+- 📄 Vedi `TODO_TESTS.md` per statistiche dettagliate e task prioritizzati
