@@ -1,1 +1,1 @@
-testFuzz_freezeAmount|testFuzz_mint|testFuzz_transferWithFee
+testFuzz_init_invalidFeeReverts|test_init_feeExceedsMax_reverts|test_init_zeroCollector_reverts
