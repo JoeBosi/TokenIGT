@@ -1,41 +1,27 @@
 # TODO — Task Pendenti
 
-## Testing & Coverage
+## Branch 2026706ClaudeCode (v2.0.0)
 
-### ⬜ Hardhat Tests
-- [ ] Rigenerare `test-results.json` con output aggiornato (`pnpm test > test-results.json`)
+### ✅ Completati (2026-07-06)
+- [x] Spec fee custodia + fee scambio con decisioni D1–D8 chiuse (`SPEC_FEE_CUSTODIA.md`)
+- [x] Contratti v2.0.0: custody fee, transfer fee a doppia semantica, freeze binario,
+      blocklist, slot ERC-7201 conformi, rimozione monitoring, SafeERC20, fix
+      infinite-allowance
+- [x] 244 test Foundry + 189 test Hardhat, tutti verdi (433 totali)
+- [x] Coverage: Token 100%/100%; estensioni 100% branches
+- [x] Audit interno (`AUDIT_INTERNO_V2.md`): Slither pulito, checklist 19 punti
+- [x] Script deploy/ruoli aggiornati; script one-off archiviati
+- [x] Documenti riarmonizzati (AGENTS, README, roles, MONITORING, API, CHANGELOG)
 
-### ⬜ Foundry Tests — Coverage Target 95%+
-Aggiungere test per raggiungere line coverage ≥ 95% su `Token.sol`:
+### ⬜ Da fare
+- [ ] **Deploy fresco su Amoy** (non upgrade — nuovi namespace storage) + verify +
+      grant ruoli + smoke test on-chain
+- [ ] Regola operativa sweep: runbook `pause → batch → unpause` con indexer holder
+- [ ] Merge del branch in `master` dopo review dell'utente
 
-- [ ] **EIP-3009**: `transferWithAuthorization`, `receiveWithAuthorization`, `cancelAuthorization`
-  - Firme EIP-712 valide
-  - Replay protection
-  - Scadenza (validBefore/validAfter)
-  - Stato autorizzazione
-- [ ] **ERC-1363**: `transferAndCall`, `transferFromAndCall`, `approveAndCall`
-  - Callback su contratti compliant
-  - Revert su contratti non compliant
-  - `supportsInterface` per IERC1363
-- [ ] **EIP-2612 Permit**: Firme valide, nonces, scadenza, replay protection
-- [ ] **Recovery**: `recoverERC20`, `recoverETH`, `recoverERC721`
-  - Recupero token/ETH/NFT inviati per errore
-- [ ] **Invariant tests**: Stateful fuzzing con `TokenHandler.sol`
-
-## Documentazione
-
-- [ ] Aggiungere badges CI/coverage in README.md
-- [ ] Aggiungere esempi di codice (snippets) in README.md
-
-## Refactor Ottimizzazioni
-
-- [ ] Verificare storage layout namespaced per V2/V3
-- [ ] Ottimizzare gas in `_update` hook se necessario
-
----
-
-**Stato attuale (2026-06-02):**
-- ✅ 162 Hardhat tests passing (0 failed)
-- ✅ 38 Foundry tests passing — 23 unit + 9 fuzz + 6 invariant (0 failed)
-- ⬜ Coverage Foundry: 47.64% lines / 31.25% branches (target: 95%+ line, 90%+ branch)
-- 📄 Vedi `TODO_TESTS.md` per statistiche dettagliate e task prioritizzati
+## Pre-mainnet (bloccanti per il go-live)
+- [ ] Governance: DEFAULT_ADMIN + UPGRADER su multisig (Safe); valutare
+      `AccessControlDefaultAdminRulesUpgradeable` e timelock (AUDIT §raccomandazioni)
+- [ ] Audit di sicurezza esterno professionale
+- [ ] Badges CI/coverage nel README + snippet di integrazione
+- [ ] Indexer holder per lo sweep (enumerazione da eventi Transfer) in produzione

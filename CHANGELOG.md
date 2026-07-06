@@ -2,6 +2,55 @@
 
 All notable changes to the IGE Token project.
 
+## [2.0.0] - 2026-07-06 — branch 2026706ClaudeCode
+
+> BREAKING: richiede deploy fresco (nuovi namespace storage e nuova `initialize`).
+> Decisioni di design D1–D8 documentate in `SPEC_FEE_CUSTODIA.md`.
+
+### Added
+- **Fee di custodia on-chain** (`ERC20CustodyFeeUpgradeable`): prelievo a cicli
+  con `sweepCustodyFee(holders)` idempotente per ciclo, fee calcolata sul balance
+  al momento dell'esecuzione, cap 200 bp, treasury dedicata, esenzioni enumerabili,
+  eventi `CycleStarted`/`CustodyFeeCollected`. Lo sweep bypassa pause, transfer fee,
+  blocklist e freeze (D3) — procedura anti-elusione `pause → batch → unpause`
+- **Doppia semantica transfer fee** (D4): netta su `transfer`/`transferFrom`
+  (destinatario riceve il netto), lorda su ERC-1363/EIP-3009 (destinatario riceve
+  esattamente il valore, mittente paga valore + fee; allowance sul lordo)
+- View di preview: `previewNet`, `previewGross`, `maxNetTransferable`
+- Esenzioni transfer fee enumerabili (`getTransferFeeExemptList`)
+- Suite di test dedicate: custody, fee semantics, storage layout ERC-7201
+  (verifica on-chain via `vm.load`), matrice fee=0 (433 test totali)
+
+### Changed
+- `FEE_ADMIN_ROLE` → `FEE_MANAGER_ROLE` (unico ruolo per entrambe le fee, D2)
+- Cap transfer fee: 999 → **100 bp** (D5); API rinominata
+  (`fee()`→`transferFeeBps()`, `setFee`→`setTransferFeeBps`,
+  `addFeeFree`→`addTransferFeeExempt`, …)
+- **Freeze binario** (D6): `freeze(account)`/`unfreeze(account)`; rimossi importi
+  parziali (`freeze(addr,amt)`, `freezeAll`, `reduceFrozen`, `frozenOf`,
+  `availableBalanceOf`)
+- `ERC20RestrictedUpgradeable` → `ERC20BlocklistUpgradeable`
+  (`blockUser`/`resetUser`/`blockAddress`/`unblock` → `blockAccount`/`unblockAccount`)
+- Freeze/block/exemption idempotenti: eventi solo al cambio di stato
+- ERC-1363: interfacce ufficiali OZ; estensione rinominata `ERC1363PayableUpgradeable`
+- Recovery con SafeERC20 e `IERC721.safeTransferFrom` tipizzata
+- `TokenV2`/`TokenV3` spostati in `contracts/mocks/` (fixture di test)
+- Output Foundry separato in `out/` (i build-info condivisi corrompevano Hardhat)
+
+### Fixed
+- **Storage ERC-7201 conforme allo standard**: aggiunto il mask `& ~0xff` mancante
+  a tutti gli slot namespaced (richiede deploy fresco; test anti-regressione)
+- **Infinite allowance**: `_spendAllowance` custom rimosso — ripristinata la
+  semantica OZ (le approvazioni `type(uint256).max` non vengono più decrementate
+  né emettono `Approval` spurio a ogni `transferFrom`)
+
+### Removed
+- Intero strato monitoring/debug on-chain (D8): `healthCheck`, `emitHealthCheck`,
+  `getSystemStatus`, `isAdmin`, `debugRoles`, eventi `OperationLogged`/
+  `*OperationDebug`/`HealthCheck`/`ErrorReport`, dead code `_emitTransfer`/
+  `_emitError`. Osservabilità off-chain documentata in `MONITORING.md`
+  (−4 KB di bytecode: runtime 18,7 KB, margine EIP-170 +5,8 KB)
+
 ## [1.6.3-security-fixes] - 2025-05-18
 
 ### Security (Critical)

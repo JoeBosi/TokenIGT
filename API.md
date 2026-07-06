@@ -1,199 +1,111 @@
-# IGT Token API Documentation
+# API Reference — Token v2.0.0
+
+Ruoli richiesti e matrice completa in [roles.md](./roles.md).
+Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.md).
 
 ## Contract Addresses
 
 ### Amoy Testnet
-- **Proxy:** `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab`
-- **Implementation:** `0xaf5c904Aab2dd9A30BF5a76b9913cBafdF218BFf`
+- Deploy v2.0.0 in corso — vedi `deployments/amoy/deploy-info.json` dopo il deploy.
+- (v1.6.3 storico: proxy `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — DEPRECATO,
+  API incompatibile con la v2)
 
-## Core Functions
+## Initialize (proxy UUPS)
 
-### Token Information
 ```solidity
-function name() public view returns (string memory)
-function symbol() public view returns (string memory)
-function decimals() public view returns (uint8)
-function totalSupply() public view returns (uint256)
-function balanceOf(address account) public view returns (uint256)
-function version() public pure returns (string memory)
+initialize(
+    string  name_,             // es. "IGE Token"
+    string  symbol_,           // es. "IGT"
+    uint256 initialSupply_,    // wei; 0 = nessun mint iniziale
+    address initialHolder_,
+    uint256 transferFeeBps_,   // 0-100 (0 = spenta) — FeeExceedsMaximum
+    address feeCollector_,     // != 0 — InvalidFeeCollector
+    uint256 custodyFeeBps_,    // 0-200 (0 = spenta) — CustodyFeeExceedsMaximum
+    address custodyTreasury_,  // != 0 — InvalidCustodyTreasury
+    address defaultAdmin_      // != 0 — InvalidAdmin
+)
 ```
 
-### Transfers
-```solidity
-function transfer(address to, uint256 value) public returns (bool)
-function transferFrom(address from, address to, uint256 value) public returns (bool)
-function approve(address spender, uint256 value) public returns (bool)
-function allowance(address owner, address spender) public view returns (uint256)
-```
+Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_MANAGER, RECOVERER.
+Emette `CycleStarted(1, timestamp)`.
 
-### Minting & Burning
-```solidity
-function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE)
-function burn(address from, uint256 amount) public onlyRole(BURNER_ROLE)
-```
+## ERC-20 + supply
 
-### Pause
-```solidity
-function pause() public onlyRole(PAUSER_ROLE)
-function unpause() public onlyRole(PAUSER_ROLE)
-function paused() public view returns (bool)
-```
+| Funzione | Note |
+|---|---|
+| `transfer(to, v)` / `transferFrom(from, to, v)` | fee **dedotta**: destinatario riceve `v - fee(v)`; allowance consumata per `v`; infinite allowance mai decrementata |
+| `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
+| `mint(to, v)` | MINTER_ROLE |
+| `burn(from, v)` | BURNER_ROLE |
+| `version()` | `"2.0.0"` |
 
-### Freeze
-```solidity
-function freeze(address account, uint256 amount) public onlyRole(FREEZER_ROLE)
-function unfreeze(address account) public onlyRole(FREEZER_ROLE)
-function frozenOf(address account) public view returns (uint256)
-function isFrozen(address account) public view returns (bool)
-```
+## Transfer fee (fee di scambio)
 
-### Block
-```solidity
-function blockAddress(address account) public onlyRole(BLOCKER_ROLE)
-function unblock(address account) public onlyRole(BLOCKER_ROLE)
-function isBlocked(address account) public view returns (bool)
-```
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `transferFeeBps()` → uint256 | view | 0–100 |
+| `setTransferFeeBps(uint256)` | FEE_MANAGER | cap `MAX_TRANSFER_FEE_BPS = 100`; evento `TransferFeeUpdated(old, new)` |
+| `feeCollector()` / `setFeeCollector(address)` | view / FEE_MANAGER | ≠0; evento `FeeCollectorUpdated` |
+| `isTransferFeeExempt(address)` / `getTransferFeeExemptList()` | view | esente se mittente O destinatario nel set |
+| `addTransferFeeExempt(a)` / `removeTransferFeeExempt(a)` | FEE_MANAGER | idempotenti; evento `TransferFeeExemptionChanged(account, exempt)` solo al cambio |
+| `previewNet(gross)` | view | netto consegnato da `transfer(gross)` (parti non-esenti) |
+| `previewGross(net)` | view | minimo lordo per consegnare ≥ net via `transfer` |
+| `maxNetTransferable(sender)` | view | max `v` con `v + fee(v) ≤ balance` (percorso lordo); balance se esente/fee 0; 0 se frozen/blocked |
 
-### Fee System
-```solidity
-function fee() public view returns (uint256)
-function feeCollector() public view returns (address)
-function setFee(uint256 newFee) public onlyRole(FEE_ADMIN_ROLE)
-function setFeeCollector(address newCollector) public onlyRole(FEE_ADMIN_ROLE)
-function addFeeFreeAccount(address account) public onlyRole(FEE_ADMIN_ROLE)
-function removeFeeFreeAccount(address account) public onlyRole(FEE_ADMIN_ROLE)
-function isFeeFree(address account) public view returns (bool)
-```
+## Custody fee (fee di custodia)
 
-### Role Management
-```solidity
-function hasRole(bytes32 role, address account) public view returns (bool)
-function grantRole(bytes32 role, address account) public onlyRole(DEFAULT_ADMIN_ROLE)
-function revokeRole(bytes32 role, address account) public onlyRole(DEFAULT_ADMIN_ROLE)
-function renounceRole(bytes32 role, address account) public
-```
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `custodyFeeBps()` / `setCustodyFeeBps(uint256)` | view / FEE_MANAGER | cap `MAX_CUSTODY_FEE_BPS = 200`; evento `CustodyFeeUpdated` |
+| `custodyTreasury()` / `setCustodyTreasury(address)` | view / FEE_MANAGER | ≠0; evento `CustodyTreasuryUpdated` |
+| `currentCycle()` | view | parte da 1 |
+| `startNewCycle()` | FEE_MANAGER | evento `CycleStarted(cycle, timestamp)` |
+| `lastSweptCycle(holder)` | view | 0 = mai sweepato |
+| `isCustodyFeeExempt(a)` / `getCustodyFeeExemptList()` | view | |
+| `addCustodyFeeExempt(a)` / `removeCustodyFeeExempt(a)` | FEE_MANAGER | idempotenti; evento `CustodyFeeExemptionChanged` |
+| `sweepCustodyFee(address[] holders)` | FEE_MANAGER | fee = `balance × bps / 10000` al momento; skip exempt/già sweepato/treasury/zero; **bypassa pause, transfer fee, blocklist, freeze**; evento `CustodyFeeCollected(holder, fee, cycle)` per ogni prelievo |
 
-### Monitoring
-```solidity
-function healthCheck() public view returns (bool, uint256, uint256, bool, uint256, address)
-function getSystemStatus() public view returns (string memory, uint256, bool, uint256, address, uint256)
-function debugRoles(address account) public view returns (bool, bool, bool)
-function isAdmin(address account) public view returns (bool)
-function emitHealthCheck() public returns (uint256)
-```
+## Restrizioni
 
-### EIP-3009 (Transfer With Authorization)
-```solidity
-function transferWithAuthorization(
-  address from, address to, uint256 value,
-  uint256 validAfter, uint256 validBefore, bytes32 nonce,
-  uint8 v, bytes32 r, bytes32 s
-) public
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `freeze(a)` / `unfreeze(a)` / `isFrozen(a)` | FREEZER / view | binario, idempotente; eventi `Frozen`/`Unfrozen` al cambio |
+| `blockAccount(a)` / `unblockAccount(a)` / `isBlocked(a)` | BLOCKER / view | idempotente; eventi `Blocked`/`Unblocked` al cambio |
+| `pause()` / `unpause()` / `paused()` | PAUSER / view | blocca tutti i trasferimenti TRANNE lo sweep custodia |
 
-function receiveWithAuthorization(
-  address from, address to, uint256 value,
-  uint256 validAfter, uint256 validBefore, bytes32 nonce,
-  uint8 v, bytes32 r, bytes32 s
-) public
+Ordine revert su transfer: `AccountBlocked` → `AccountFrozen` → `EnforcedPause`.
+Mint/burn esenti da block/freeze/fee (non dalla pausa).
 
-function authorizationState(address authorizer, bytes32 nonce) public view returns (bool)
-```
+## Firme off-chain
 
-### Permit (EIP-2612)
-```solidity
-function permit(
-  address owner, address spender, uint256 value,
-  uint256 deadline, uint8 v, bytes32 r, bytes32 s
-) public
+| Funzione | Note |
+|---|---|
+| `permit(owner, spender, value, deadline, v, r, s)` | EIP-2612 |
+| `nonces(owner)` / `DOMAIN_SEPARATOR()` / `eip712Domain()` | EIP-2612/5267 |
+| `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` | EIP-3009 — **lordo**: `to` riceve `value` esatti, `from` paga `value + fee` |
+| `receiveWithAuthorization(...)` | come sopra, `to == msg.sender` obbligatorio |
+| `cancelAuthorization(authorizer, nonce, v, r, s)` | invalida un nonce |
+| `authorizationState(authorizer, nonce)` | view |
 
-function nonces(address owner) public view returns (uint256)
-function DOMAIN_SEPARATOR() external view returns (bytes32)
-```
+## ERC-1363
 
-## Events
+| Funzione | Note |
+|---|---|
+| `transferAndCall(to, value[, data])` | **lordo**; callback `onTransferReceived` su contratti |
+| `transferFromAndCall(from, to, value[, data])` | **lordo**; l'allowance deve coprire `value + fee` e viene consumata per il lordo |
+| `approveAndCall(spender, value[, data])` | approve + callback `onApprovalReceived` |
+| `supportsInterface(bytes4)` | IERC1363, IAccessControl, IERC165 |
 
-### ERC-20 Standard
-```solidity
-event Transfer(address indexed from, address indexed to, uint256 value)
-event Approval(address indexed owner, address indexed spender, uint256 value)
-```
+## Recovery (RECOVERER_ROLE)
 
-### Monitoring Events
-```solidity
-event MintOperationDebug(address indexed to, uint256 amount, address indexed executor, uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 timestamp)
-event BurnOperationDebug(address indexed from, uint256 amount, address indexed executor, uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 timestamp)
-event FeeOperationDebug(address indexed from, address indexed to, uint256 amount, uint256 feeAmount, address feeCollector, uint256 netValue, uint256 timestamp)
-event FreezeOperationDebug(address indexed account, uint256 frozenAmount, address indexed executor, uint256 timestamp)
-event BlockOperationDebug(address indexed account, bool blocked, uint256 timestamp)
-event PauseOperationDebug(bool paused, address indexed executor, uint256 timestamp)
-event HealthCheck(uint256 indexed checkId, uint256 totalSupply, uint256 activeUsers, bool isPaused, uint256 currentFee, address feeCollector, uint256 timestamp)
-```
+| Funzione | Note |
+|---|---|
+| `recoverERC20(token, to, amount)` | SafeERC20; con `token == address(this)` passa dal percorso standard (fee+pausa) |
+| `recoverETH(to, amount)` | revert `TransferFailed` se la call fallisce |
+| `recoverERC721(nft, to, tokenId)` | `IERC721.safeTransferFrom` |
 
-### State Change Events (v1.6.3+)
-```solidity
-// Freeze events
-event Frozen(address indexed account)
-event Unfrozen(address indexed account)
-event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount)
+## Upgrade (UPGRADER_ROLE)
 
-// Fee admin events
-event FeeUpdated(uint256 previousFee, uint256 newFee)
-event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector)
-event FeeFreeStatusChanged(address indexed account, bool isFeeFree)
-
-// EIP-3009 events
-event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)
-event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce)
-```
-
-### Role Events
-```solidity
-event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
-event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
-event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
-```
-
-## Role Hashes
-
-```javascript
-const ROLES = {
-  DEFAULT_ADMIN_ROLE: "0x0000000000000000000000000000000000000000000000000000000000000000",
-  UPGRADER_ROLE: keccak256("UPGRADER_ROLE"),
-  MINTER_ROLE: keccak256("MINTER_ROLE"),
-  BURNER_ROLE: keccak256("BURNER_ROLE"),
-  PAUSER_ROLE: keccak256("PAUSER_ROLE"),
-  FREEZER_ROLE: keccak256("FREEZER_ROLE"),
-  BLOCKER_ROLE: keccak256("BLOCKER_ROLE"),
-  FEE_ADMIN_ROLE: keccak256("FEE_ADMIN_ROLE"),
-  RECOVERER_ROLE: keccak256("RECOVERER_ROLE"),
-}
-```
-
-## ABI Files
-
-Available in `abi/` directory:
-- `Token.json` - Main token ABI
-- `TokenV2.json` - V2 extended ABI
-- `ERC1967Proxy.json` - Proxy ABI
-
-## Usage Example
-
-```typescript
-import { ethers } from "ethers";
-import TokenABI from "./abi/Token.json";
-
-const provider = new ethers.JsonRpcProvider("https://rpc-amoy.polygon.technology");
-const token = new ethers.Contract(
-  "0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab",
-  TokenABI.abi,
-  provider
-);
-
-// Read balance
-const balance = await token.balanceOf("0x...");
-console.log(ethers.formatEther(balance));
-
-// Check if address is blocked
-const blocked = await token.isBlocked("0x...");
-console.log("Blocked:", blocked);
-```
+| Funzione | Note |
+|---|---|
+| `upgradeToAndCall(newImplementation, data)` | UUPS; `_authorizeUpgrade` gated dal ruolo |
