@@ -3,19 +3,21 @@ pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../interfaces/IERC1363.sol";
-import "../interfaces/IERC1363Receiver.sol";
-import "../interfaces/IERC1363Spender.sol";
+import "@openzeppelin/contracts/interfaces/IERC1363.sol";
+import "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
+import "@openzeppelin/contracts/interfaces/IERC1363Spender.sol";
 
 /**
- * @title ERC20_1363Upgradeable
- * @dev ERC-1363 Payable Token extension for ERC20 tokens
- * Implements transferAndCall, transferFromAndCall, approveAndCall
- * Uses ERC-7201 namespaced storage pattern
- * 
- * NOTE: Implementation not yet debugged, requires testing
+ * @title ERC1363PayableUpgradeable
+ * @dev ERC-1363 Payable Token extension: transferAndCall, transferFromAndCall,
+ * approveAndCall with receiver/spender callbacks.
+ *
+ * Custom implementation (instead of OpenZeppelin's ERC1363Upgradeable) because
+ * this token applies a GROSS fee semantic on ERC-1363 transfers: the recipient
+ * receives exactly `value` and the sender pays `value + fee`. The transfer
+ * mechanics are delegated to the main contract via virtual hooks.
  */
-abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IERC1363 {
+abstract contract ERC1363PayableUpgradeable is Initializable, ERC165Upgradeable, IERC1363 {
     bytes4 private constant ERC1363_RECEIVED = type(IERC1363Receiver).interfaceId;
     bytes4 private constant ERC1363_APPROVED = type(IERC1363Spender).interfaceId;
 
@@ -24,16 +26,16 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
     error ERC1363TransferFailed();
     error ERC1363ApprovalFailed();
 
-    function __ERC20_1363_init() internal onlyInitializing {
+    function __ERC1363Payable_init() internal onlyInitializing {
         __ERC165_init();
     }
 
-    function __ERC20_1363_init_unchained() internal onlyInitializing {}
+    function __ERC1363Payable_init_unchained() internal onlyInitializing {}
 
     /**
      * @notice Transfer tokens and call the receiver contract
-     * @param to The address to transfer to
-     * @param value The amount to transfer
+     * @param to The address to transfer to (receives exactly `value`)
+     * @param value The amount the recipient receives; the sender pays value + fee
      * @return true if transfer and call successful
      */
     function transferAndCall(address to, uint256 value) public returns (bool) {
@@ -42,24 +44,24 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
 
     /**
      * @notice Transfer tokens and call the receiver contract with data
-     * @param to The address to transfer to
-     * @param value The amount to transfer
+     * @param to The address to transfer to (receives exactly `value`)
+     * @param value The amount the recipient receives; the sender pays value + fee
      * @param data Additional data for the callback
      * @return true if transfer and call successful
      */
     function transferAndCall(address to, uint256 value, bytes memory data) public returns (bool) {
         _transfer1363(msg.sender, to, value);
-        
+
         _checkAndCallTransfer(msg.sender, to, value, data);
-        
+
         return true;
     }
 
     /**
      * @notice Transfer tokens from one address to another and call the receiver contract
-     * @param from The address to transfer from
-     * @param to The address to transfer to
-     * @param value The amount to transfer
+     * @param from The address to transfer from (pays value + fee; allowance must cover the gross)
+     * @param to The address to transfer to (receives exactly `value`)
+     * @param value The amount the recipient receives
      * @return true if transfer and call successful
      */
     function transferFromAndCall(address from, address to, uint256 value) public returns (bool) {
@@ -68,18 +70,17 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
 
     /**
      * @notice Transfer tokens from one address to another and call the receiver contract with data
-     * @param from The address to transfer from
-     * @param to The address to transfer to
-     * @param value The amount to transfer
+     * @param from The address to transfer from (pays value + fee; allowance must cover the gross)
+     * @param to The address to transfer to (receives exactly `value`)
+     * @param value The amount the recipient receives
      * @param data Additional data for the callback
      * @return true if transfer and call successful
      */
     function transferFromAndCall(address from, address to, uint256 value, bytes memory data) public returns (bool) {
-        _spendAllowance(from, msg.sender, value);
-        _transfer1363(from, to, value);
-        
+        _transferFrom1363(from, msg.sender, to, value);
+
         _checkAndCallTransfer(from, to, value, data);
-        
+
         return true;
     }
 
@@ -102,9 +103,9 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
      */
     function approveAndCall(address spender, uint256 value, bytes memory data) public returns (bool) {
         _approve1363(msg.sender, spender, value);
-        
+
         _checkAndCallApproval(msg.sender, spender, value, data);
-        
+
         return true;
     }
 
@@ -148,12 +149,14 @@ abstract contract ERC20_1363Upgradeable is Initializable, ERC165Upgradeable, IER
     /**
      * @dev Override supportsInterface to include ERC1363
      */
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC165Upgradeable, IERC165) returns (bool) {
         return interfaceId == INTERFACE_ID_ERC1363 || super.supportsInterface(interfaceId);
     }
 
-    // Virtual functions to be implemented by the main contract
+    // Virtual functions implemented by the main contract (gross fee semantics)
     function _transfer1363(address from, address to, uint256 value) internal virtual;
-    function _spendAllowance(address owner, address spender, uint256 value) internal virtual;
+    function _transferFrom1363(address from, address spender, address to, uint256 value) internal virtual;
     function _approve1363(address owner, address spender, uint256 value) internal virtual;
 }

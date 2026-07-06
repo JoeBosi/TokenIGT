@@ -12,10 +12,9 @@ import "../interfaces/IERC3009.sol";
  * Uses ERC-7201 namespaced storage pattern
  */
 abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, IERC3009 {
-    // ERC-7201 namespace: advanced.token.eip3009
-    bytes32 private constant STORAGE_LOCATION = keccak256(
-        abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1)
-    );
+    /// @dev keccak256(abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant EIP3009_STORAGE_LOCATION =
+        0xe281c9e49b595b8ea7184e0675358c21ea63e763a0426bf5fc042fef0860fb00;
 
     /// @custom:storage-location erc7201:advanced.token.eip3009.storage
     struct EIP3009Storage {
@@ -199,12 +198,14 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     }
 
     function _getEIP3009Storage() private pure returns (EIP3009Storage storage $) {
-        bytes32 position = keccak256(abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1));
         assembly {
-            $.slot := position
+            $.slot := EIP3009_STORAGE_LOCATION
         }
     }
 
-    // Virtual function to be implemented by the main contract
+    /**
+     * @dev Virtual function implemented by the main contract. Gross fee
+     * semantics: `to` receives exactly `value`, `from` pays value + fee.
+     */
     function _executeTransfer(address from, address to, uint256 value) internal virtual;
 }

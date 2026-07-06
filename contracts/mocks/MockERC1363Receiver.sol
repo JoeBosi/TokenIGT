@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "../interfaces/IERC1363Receiver.sol";
-import "../interfaces/IERC1363Spender.sol";
+import "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
+import "@openzeppelin/contracts/interfaces/IERC1363Spender.sol";
 
 /**
  * @title MockERC1363Receiver
