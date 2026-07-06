@@ -253,6 +253,27 @@ contract TokenMiscTest is Test {
         assertFalse(token.isTransferFeeExempt(feeExemptAccount));
     }
 
+    /// @dev getTransferFeeExemptList: assert membership and length, NOT order (EnumerableSet)
+    function test_getTransferFeeExemptList_membership() public {
+        assertEq(token.getTransferFeeExemptList().length, 0);
+
+        token.addTransferFeeExempt(feeExemptAccount);
+        token.addTransferFeeExempt(regularSender);
+
+        address[] memory list = token.getTransferFeeExemptList();
+        assertEq(list.length, 2);
+        bool foundExempt;
+        bool foundSender;
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == feeExemptAccount) foundExempt = true;
+            if (list[i] == regularSender) foundSender = true;
+        }
+        assertTrue(foundExempt && foundSender);
+
+        token.removeTransferFeeExempt(feeExemptAccount);
+        assertEq(token.getTransferFeeExemptList().length, 1);
+    }
+
     // ─────────────────────────────────────────────
     // ERC20FreezableUpgradeable — binary freeze
     // ─────────────────────────────────────────────
