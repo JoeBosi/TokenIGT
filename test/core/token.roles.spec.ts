@@ -24,7 +24,7 @@ describe("Token - Access Control", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -39,7 +39,7 @@ describe("Token - Access Control", function () {
       const BURNER_ROLE = await token.BURNER_ROLE();
       const FREEZER_ROLE = await token.FREEZER_ROLE();
       const BLOCKER_ROLE = await token.BLOCKER_ROLE();
-      const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
+      const FEE_MANAGER_ROLE = await token.FEE_MANAGER_ROLE();
       const RECOVERER_ROLE = await token.RECOVERER_ROLE();
 
             
@@ -50,7 +50,7 @@ describe("Token - Access Control", function () {
       expect(BURNER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(FREEZER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(BLOCKER_ROLE).to.not.equal(ethers.ZeroHash);
-      expect(FEE_ADMIN_ROLE).to.not.equal(ethers.ZeroHash);
+      expect(FEE_MANAGER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(RECOVERER_ROLE).to.not.equal(ethers.ZeroHash);
     });
   });
@@ -163,26 +163,26 @@ describe("Token - Access Control", function () {
     it("Should allow blocker to block", async function () {
       const BLOCKER_ROLE = await token.BLOCKER_ROLE();
       await token.grantRole(BLOCKER_ROLE, blocker.address);
-      await token.connect(blocker).blockAddress(addr1.address);
+      await token.connect(blocker).blockAccount(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.true;
     });
 
     it("Should not allow non-blocker to block", async function () {
-      await expect(token.connect(addr1).blockAddress(addr1.address))
+      await expect(token.connect(addr1).blockAccount(addr1.address))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
   });
 
-  describe("FEE_ADMIN_ROLE", function () {
+  describe("FEE_MANAGER_ROLE", function () {
     it("Should allow fee admin to set fee", async function () {
-      const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
-      await token.grantRole(FEE_ADMIN_ROLE, feeAdmin.address);
-      await token.connect(feeAdmin).setFee(50);
-      expect(await token.fee()).to.equal(50);
+      const FEE_MANAGER_ROLE = await token.FEE_MANAGER_ROLE();
+      await token.grantRole(FEE_MANAGER_ROLE, feeAdmin.address);
+      await token.connect(feeAdmin).setTransferFeeBps(50);
+      expect(await token.transferFeeBps()).to.equal(50);
     });
 
     it("Should not allow non-fee admin to set fee", async function () {
-      await expect(token.connect(addr1).setFee(50))
+      await expect(token.connect(addr1).setTransferFeeBps(50))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
   });

@@ -19,7 +19,7 @@ describe("Token - Core ERC-20", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      [TOKEN_NAME, TOKEN_SYMBOL, INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      [TOKEN_NAME, TOKEN_SYMBOL, INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -41,7 +41,7 @@ describe("Token - Core ERC-20", function () {
     });
 
     it("Should set the initial fee", async function () {
-      expect(await token.fee()).to.equal(10);
+      expect(await token.transferFeeBps()).to.equal(10);
     });
 
     it("Should set the fee collector", async function () {

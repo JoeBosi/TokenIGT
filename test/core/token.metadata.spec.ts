@@ -17,7 +17,7 @@ describe("Token - Metadata", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      [TOKEN_NAME, TOKEN_SYMBOL, INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      [TOKEN_NAME, TOKEN_SYMBOL, INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();

@@ -1,7 +1,9 @@
 [profile.default]
 src = "contracts"
 test = "test/foundry"
-out = "artifacts"
+# Output separato da quello di Hardhat (artifacts/): condividerli corrompe
+# i build-info che Hardhat prova a parsare
+out = "out"
 libs = ["node_modules", "lib"]
 # Allineato a hardhat.config.ts: il bytecode testato deve essere quello deployato
 optimizer = true

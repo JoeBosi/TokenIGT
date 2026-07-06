@@ -19,37 +19,37 @@ describe("Token - Fee", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, INITIAL_FEE, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, INITIAL_FEE, owner.address, 50, owner.address, owner.address],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
 
-    const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
-    await token.grantRole(FEE_ADMIN_ROLE, feeAdmin.address);
+    const FEE_MANAGER_ROLE = await token.FEE_MANAGER_ROLE();
+    await token.grantRole(FEE_MANAGER_ROLE, feeAdmin.address);
   });
 
   describe("Fee Configuration", function () {
     it("Should have initial fee set correctly", async function () {
-      expect(await token.fee()).to.equal(INITIAL_FEE);
+      expect(await token.transferFeeBps()).to.equal(INITIAL_FEE);
     });
 
     it("Should allow fee admin to set fee", async function () {
-      await token.connect(feeAdmin).setFee(50);
-      expect(await token.fee()).to.equal(50);
+      await token.connect(feeAdmin).setTransferFeeBps(50);
+      expect(await token.transferFeeBps()).to.equal(50);
     });
 
     it("Should not allow fee above maximum (999)", async function () {
-      await expect(token.connect(feeAdmin).setFee(1000))
+      await expect(token.connect(feeAdmin).setTransferFeeBps(1000))
         .to.be.revertedWithCustomError(token, "FeeExceedsMaximum");
     });
 
-    it("Should allow fee at maximum (999)", async function () {
-      await token.connect(feeAdmin).setFee(999);
-      expect(await token.fee()).to.equal(999);
+    it("Should allow fee at maximum (100)", async function () {
+      await token.connect(feeAdmin).setTransferFeeBps(100);
+      expect(await token.transferFeeBps()).to.equal(100);
     });
 
     it("Should not allow non-fee admin to set fee", async function () {
-      await expect(token.connect(addr1).setFee(50))
+      await expect(token.connect(addr1).setTransferFeeBps(50))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
 
@@ -66,18 +66,18 @@ describe("Token - Fee", function () {
 
   describe("Fee Whitelist", function () {
     it("Should allow fee admin to add fee-free address", async function () {
-      await token.connect(feeAdmin).addFeeFree(addr1.address);
-      expect(await token.isFeeFree(addr1.address)).to.be.true;
+      await token.connect(feeAdmin).addTransferFeeExempt(addr1.address);
+      expect(await token.isTransferFeeExempt(addr1.address)).to.be.true;
     });
 
     it("Should allow fee admin to remove fee-free address", async function () {
-      await token.connect(feeAdmin).addFeeFree(addr1.address);
-      await token.connect(feeAdmin).removeFeeFree(addr1.address);
-      expect(await token.isFeeFree(addr1.address)).to.be.false;
+      await token.connect(feeAdmin).addTransferFeeExempt(addr1.address);
+      await token.connect(feeAdmin).removeTransferFeeExempt(addr1.address);
+      expect(await token.isTransferFeeExempt(addr1.address)).to.be.false;
     });
 
     it("Should not allow non-fee admin to add fee-free address", async function () {
-      await expect(token.connect(addr1).addFeeFree(addr2.address))
+      await expect(token.connect(addr1).addTransferFeeExempt(addr2.address))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
   });
@@ -98,7 +98,7 @@ describe("Token - Fee", function () {
     });
 
     it("Should not apply fee when fee is zero", async function () {
-      await token.connect(feeAdmin).setFee(0);
+      await token.connect(feeAdmin).setTransferFeeBps(0);
       const transferAmount = ethers.parseEther("1000");
       
       await token.transfer(addr1.address, transferAmount);
@@ -129,7 +129,7 @@ describe("Token - Fee", function () {
     });
 
     it("Should not apply fee when sender is fee-free", async function () {
-      await token.connect(feeAdmin).addFeeFree(owner.address);
+      await token.connect(feeAdmin).addTransferFeeExempt(owner.address);
       const transferAmount = ethers.parseEther("1000");
       
       await token.transfer(addr1.address, transferAmount);
@@ -138,7 +138,7 @@ describe("Token - Fee", function () {
     });
 
     it("Should not apply fee when recipient is fee-free", async function () {
-      await token.connect(feeAdmin).addFeeFree(addr1.address);
+      await token.connect(feeAdmin).addTransferFeeExempt(addr1.address);
       const transferAmount = ethers.parseEther("1000");
       
       await token.transfer(addr1.address, transferAmount);

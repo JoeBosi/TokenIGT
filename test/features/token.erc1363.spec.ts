@@ -18,7 +18,7 @@ describe("Token - ERC-1363", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -55,7 +55,9 @@ describe("Token - ERC-1363", function () {
   describe("transferFromAndCall", function () {
     it("Should transferFrom tokens and call receiver", async function () {
       const amount = ethers.parseEther("100");
-      await token.approve(addr1.address, amount);
+      // Gross semantics: the allowance must cover value + fee (0.10% of 100 = 0.1)
+      const fee = (amount * 10n) / 10000n;
+      await token.approve(addr1.address, amount + fee);
 
       await expect(token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount))
         .to.emit(token, "Transfer")
@@ -64,12 +66,24 @@ describe("Token - ERC-1363", function () {
 
     it("Should update balances and allowance correctly", async function () {
       const amount = ethers.parseEther("100");
-      await token.approve(addr1.address, amount);
+      // Gross semantics: allowance covers value + fee and is fully consumed;
+      // the recipient receives EXACTLY the stated value
+      const fee = (amount * 10n) / 10000n;
+      await token.approve(addr1.address, amount + fee);
 
       await token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount);
 
       expect(await token.balanceOf(await receiver.getAddress())).to.equal(amount);
       expect(await token.allowance(owner.address, addr1.address)).to.equal(0);
+    });
+
+    it("Should revert when allowance covers only the value but not the fee", async function () {
+      const amount = ethers.parseEther("100");
+      await token.approve(addr1.address, amount); // fee not covered
+
+      await expect(
+        token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount)
+      ).to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
     });
   });
 
