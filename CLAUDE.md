@@ -17,19 +17,19 @@ Le specifiche operative complete (ruoli, storage layout ERC-7201, vincoli sulle 
 ## Comandi
 
 ```shell
-pnpm test                 # 162 test Hardhat (~10s)
-forge test                # 134 test Foundry: unit + fuzz + invariant (~25s)
-forge coverage            # Coverage (target: ≥95% lines, ≥90% branches su contracts/ core)
+pnpm test                 # 189 test Hardhat (~6s)
+forge test                # 244 test Foundry: unit + fuzz + invariant (~18s)
+forge coverage            # Coverage (Token 100%/100%; estensioni 100% branches)
 forge build --sizes       # Verifica limite EIP-170 (runtime < 24.576 B)
 forge fmt                 # Format (la CI fa forge fmt --check)
-pnpm hardhat compile      # Build Hardhat
+pnpm hardhat compile      # Build Hardhat (output artifacts/; Foundry usa out/ — NON unificarli)
 ```
 
 ## Vincoli non negoziabili
 
 1. **Mai modificare l'ordine/layout dello storage** nei contratti upgradeable: solo append nei namespace ERC-7201. Validare con OZ Upgrades prima di ogni upgrade.
 2. **Optimizer allineato**: foundry.toml e hardhat.config.ts compilano entrambi con `optimizer=true, runs=200, evm_version=cancun`. Non disallinearli: i test devono coprire il bytecode che va on-chain.
-3. **Tutti i 296 test devono passare** (162 Hardhat + 134 Foundry) prima di ogni commit. La CI (.github/workflows/test.yml) esegue `forge fmt --check`, `forge build --sizes`, `forge test -vvv`.
+3. **Tutti i 433 test devono passare** (189 Hardhat + 244 Foundry) prima di ogni commit. La CI (.github/workflows/test.yml) esegue `forge fmt --check`, `forge build --sizes`, `forge test -vvv`.
 4. **Mai committare segreti**: `.env` è gitignored e contiene chiavi private/API key; usare `.env.example` come template. Non stampare mai il contenuto di `.env`.
 5. **Access control**: ogni funzione privilegiata richiede il ruolo dedicato (MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_ADMIN, UPGRADER, RECOVERER). Nuove funzioni privilegiate → nuovo test di access control su entrambe le suite.
 6. **Deploy**: script in `scripts/deploy/`; gli esiti vanno in `deployments/<rete>/`. Il deploy mainnet Polygon non è ancora avvenuto — richiede sempre conferma esplicita dell'utente.

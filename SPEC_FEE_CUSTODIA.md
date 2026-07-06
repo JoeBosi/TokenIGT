@@ -1,6 +1,7 @@
 # SPEC — Fee di custodia on-chain e fee di scambio + Audit pre-implementazione
 
-> Branch: `2026706ClaudeCode` · Data: 2026-07-06 · Stato: **DECISIONI CHIUSE — in esecuzione**
+> Branch: `2026706ClaudeCode` · Data: 2026-07-06 · Stato: **IMPLEMENTATA E DEPLOYATA SU AMOY** ✅
+> (proxy `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6`, 433 test verdi, audit in `AUDIT_INTERNO_V2.md`)
 >
 > **Decisioni finali (confermate dall'utente il 2026-07-06):**
 > - **D1** — Transfer fee su `transfer`/`transferFrom`: **dedotta dall'importo** (trasferisco 100, arriva il netto).
