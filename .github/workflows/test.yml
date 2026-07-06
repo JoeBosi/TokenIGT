@@ -9,7 +9,7 @@ on:
 
 jobs:
   check:
-    name: Foundry project
+    name: Foundry + Hardhat
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,6 +19,22 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      # Le dipendenze Solidity (OpenZeppelin) vengono da npm: senza questo
+      # step forge non trova node_modules/@openzeppelin e la build fallisce
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
@@ -26,10 +42,13 @@ jobs:
         run: forge --version
 
       - name: Run Forge fmt
-        run: forge fmt --check
+        run: forge fmt --check contracts/ test/foundry/
 
       - name: Run Forge build
         run: forge build --sizes
 
       - name: Run Forge tests
         run: forge test -vvv
+
+      - name: Run Hardhat tests
+        run: pnpm hardhat test
