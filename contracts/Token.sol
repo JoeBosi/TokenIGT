@@ -170,11 +170,10 @@ contract Token is
      * Net fee semantics: the recipient receives value - fee.
      * Order: BLOCK -> FREEZE -> FEE -> PAUSE (enforced by super._update) -> SETTLEMENT.
      */
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    ) internal override(ERC20Upgradeable, ERC20PausableUpgradeable) {
+    function _update(address from, address to, uint256 value)
+        internal
+        override(ERC20Upgradeable, ERC20PausableUpgradeable)
+    {
         _runSecurityChecks(from, to);
 
         if (from != address(0) && to != address(0)) {
@@ -336,18 +335,24 @@ contract Token is
     /**
      * @dev balanceOf: shared by ERC20 and the custody fee extension
      */
-    function balanceOf(
-        address account
-    ) public view override(ERC20Upgradeable, ERC20CustodyFeeUpgradeable, IERC20) returns (uint256) {
+    function balanceOf(address account)
+        public
+        view
+        override(ERC20Upgradeable, ERC20CustodyFeeUpgradeable, IERC20)
+        returns (uint256)
+    {
         return super.balanceOf(account);
     }
 
     /**
      * @dev supportsInterface: ERC1363 + AccessControl (+ ERC165)
      */
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override(AccessControlUpgradeable, ERC1363PayableUpgradeable) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(AccessControlUpgradeable, ERC1363PayableUpgradeable)
+        returns (bool)
+    {
         return super.supportsInterface(interfaceId);
     }
 }

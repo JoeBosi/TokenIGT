@@ -27,10 +27,9 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     error AuthorizationNotYetValid();
     error InvalidNonce();
 
-    bytes32 private constant TYPE_HASH =
-        keccak256(
-            "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
-        );
+    bytes32 private constant TYPE_HASH = keccak256(
+        "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
+    );
 
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
     event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
@@ -65,12 +64,12 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         bytes32 s
     ) public {
         _validateAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s);
-        
+
         EIP3009Storage storage $ = _getEIP3009Storage();
         $.authorizationState[from][nonce] = true;
-        
+
         emit AuthorizationUsed(from, nonce);
-        
+
         _executeTransfer(from, to, value);
     }
 
@@ -100,14 +99,14 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         if (to != msg.sender) {
             revert InvalidSignature();
         }
-        
+
         _validateAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s);
-        
+
         EIP3009Storage storage $ = _getEIP3009Storage();
         $.authorizationState[from][nonce] = true;
-        
+
         emit AuthorizationUsed(from, nonce);
-        
+
         _executeTransfer(from, to, value);
     }
 
@@ -119,19 +118,9 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
      * @param r The signature output r
      * @param s The signature output s
      */
-    function cancelAuthorization(
-        address authorizer,
-        bytes32 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public {
+    function cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) public {
         bytes32 structHash = keccak256(
-            abi.encode(
-                keccak256("CancelAuthorization(address authorizer,bytes32 nonce)"),
-                authorizer,
-                nonce
-            )
+            abi.encode(keccak256("CancelAuthorization(address authorizer,bytes32 nonce)"), authorizer, nonce)
         );
 
         bytes32 hash = _hashTypedDataV4(structHash);
@@ -172,9 +161,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         bytes32 r,
         bytes32 s
     ) private {
-        bytes32 structHash = keccak256(
-            abi.encode(TYPE_HASH, from, to, value, validAfter, validBefore, nonce)
-        );
+        bytes32 structHash = keccak256(abi.encode(TYPE_HASH, from, to, value, validAfter, validBefore, nonce));
 
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = ECDSA.recover(hash, v, r, s);

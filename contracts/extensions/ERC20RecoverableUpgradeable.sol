@@ -51,7 +51,7 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
             revert InvalidRecipient();
         }
 
-        (bool success, ) = to.call{value: amount}("");
+        (bool success,) = to.call{value: amount}("");
         if (!success) {
             revert TransferFailed();
         }

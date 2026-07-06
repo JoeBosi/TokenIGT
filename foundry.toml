@@ -26,6 +26,5 @@ runs = 1000
 depth = 100
 fail_on_revert = false
 call_override = false
-shrink_sequence = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

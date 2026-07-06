@@ -149,9 +149,13 @@ abstract contract ERC1363PayableUpgradeable is Initializable, ERC165Upgradeable,
     /**
      * @dev Override supportsInterface to include ERC1363
      */
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override(ERC165Upgradeable, IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC165Upgradeable, IERC165)
+        returns (bool)
+    {
         return interfaceId == INTERFACE_ID_ERC1363 || super.supportsInterface(interfaceId);
     }
 

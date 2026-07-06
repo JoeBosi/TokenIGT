@@ -5,39 +5,59 @@ import "forge-std/Test.sol";
 import "../../contracts/Token.sol";
 import "../../contracts/mocks/MockERC20.sol";
 import "../../contracts/mocks/MockERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import "@openzeppelin/contracts/access/IAccessControl.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "./UUPSProxy.sol";
 
 /**
  * @title TokenRecoverableTest
- * @dev Foundry tests for ERC20RecoverableUpgradeable
+ * @dev Foundry tests for ERC20RecoverableUpgradeable (Token v2.0.0)
  *
  * Behaviour under test:
  *   recoverERC20  — RECOVERER_ROLE can send any ERC-20 held by proxy to a recipient
+ *                   (uses SafeERC20.safeTransfer under the hood)
  *   recoverETH    — RECOVERER_ROLE can send native ETH held by proxy to a recipient
  *   recoverERC721 — RECOVERER_ROLE can send an ERC-721 held by proxy to a recipient
+ *                   (uses the typed IERC721.safeTransferFrom — underlying errors bubble up)
+ *
+ * Special case: recoverERC20(address(this), ...) moves the token's OWN balance and
+ * goes through the standard transfer path — the transfer fee applies when the
+ * contract is not exempt, and the call reverts while the token is paused.
  *
  * Failure modes:
  *   AccessControlUnauthorizedAccount — caller lacks RECOVERER_ROLE
  *   InvalidRecipient                 — to == address(0)
- *   TransferFailed                   — underlying call reverts (ETH send fails)
+ *   SafeERC20FailedOperation         — ERC-20 transfer returns false (recoverERC20)
+ *   TransferFailed                   — ETH send fails (recoverETH)
+ *   ERC721InsufficientApproval       — NFT not owned by the proxy (recoverERC721)
  */
 contract TokenRecoverableTest is Test {
     Token public token;
     MockERC20 public mockERC20;
     MockERC721 public mockERC721;
+    FalseReturningERC20 public falseERC20;
 
     address public admin;
     address public recoverer;
     address public nonRecoverer;
     address public safeRecipient;
+    address public feeCollector;
+    address public custodyTreasury;
 
     uint256 constant INITIAL_SUPPLY = 100_000 * 10 ** 18;
+    uint256 constant TRANSFER_FEE_BPS = 10; // 0.1%
+    uint256 constant CUSTODY_FEE_BPS = 50; // 0.5%
 
     function setUp() public {
         admin = address(this);
         recoverer = address(0xEC07EC01);
         nonRecoverer = address(0xBAD00002);
         safeRecipient = address(0xFEED0003);
+        feeCollector = address(0x200);
+        custodyTreasury = address(0x201);
 
         // Deploy token
         Token implementation = new Token();
@@ -47,8 +67,10 @@ contract TokenRecoverableTest is Test {
             "TEST",
             INITIAL_SUPPLY,
             admin,
-            0,             // zero fee
-            address(0x200),
+            TRANSFER_FEE_BPS,
+            feeCollector,
+            CUSTODY_FEE_BPS,
+            custodyTreasury,
             admin
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
@@ -57,9 +79,14 @@ contract TokenRecoverableTest is Test {
         // Grant RECOVERER_ROLE to recoverer
         token.grantRole(token.RECOVERER_ROLE(), recoverer);
 
+        // Operational roles needed by the self-token recovery tests
+        token.grantRole(token.MINTER_ROLE(), admin);
+        token.grantRole(token.PAUSER_ROLE(), admin);
+
         // Deploy mocks
         mockERC20 = new MockERC20();
         mockERC721 = new MockERC721();
+        falseERC20 = new FalseReturningERC20();
     }
 
     // ─────────────────────────────────────────────
@@ -97,8 +124,11 @@ contract TokenRecoverableTest is Test {
     function test_recoverERC20_nonRecovererReverts() public {
         mockERC20.mint(address(token), 100);
 
+        bytes32 role = token.RECOVERER_ROLE();
         vm.prank(nonRecoverer);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonRecoverer, role)
+        );
         token.recoverERC20(address(mockERC20), safeRecipient, 100);
     }
 
@@ -108,6 +138,85 @@ contract TokenRecoverableTest is Test {
         vm.prank(recoverer);
         vm.expectRevert(ERC20RecoverableUpgradeable.InvalidRecipient.selector);
         token.recoverERC20(address(mockERC20), address(0), 100);
+    }
+
+    function test_recoverERC20_falseReturningTokenReverts() public {
+        // SafeERC20: a token whose transfer returns false must revert with
+        // SafeERC20FailedOperation (no more custom TransferFailed on this path)
+        falseERC20.mint(address(token), 100);
+
+        vm.prank(recoverer);
+        vm.expectRevert(abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(falseERC20)));
+        token.recoverERC20(address(falseERC20), safeRecipient, 100);
+    }
+
+    function test_recoverERC20_externalTokenWorksWhilePaused() public {
+        // Recovering a FOREIGN token does not go through the token's transfer
+        // path, so pause does not interfere
+        uint256 amount = 100 * 10 ** 18;
+        mockERC20.mint(address(token), amount);
+
+        token.pause();
+
+        vm.prank(recoverer);
+        token.recoverERC20(address(mockERC20), safeRecipient, amount);
+
+        assertEq(mockERC20.balanceOf(safeRecipient), amount);
+    }
+
+    // ─────────────────────────────────────────────
+    // recoverERC20(address(this), ...) — standard transfer path
+    // ─────────────────────────────────────────────
+
+    function test_recoverERC20_selfToken_paysTransferFee() public {
+        // Recovering the token's OWN balance goes through the standard transfer
+        // path: the recipient receives the net and the collector receives the fee
+        uint256 amount = 10_000 * 10 ** 18;
+        token.mint(address(token), amount);
+
+        uint256 fee = (amount * TRANSFER_FEE_BPS) / 10000;
+        assertGt(fee, 0);
+
+        vm.expectEmit(true, true, false, true, address(token));
+        emit IERC20.Transfer(address(token), safeRecipient, amount - fee);
+        vm.expectEmit(true, true, false, true, address(token));
+        emit IERC20.Transfer(address(token), feeCollector, fee);
+
+        vm.prank(recoverer);
+        token.recoverERC20(address(token), safeRecipient, amount);
+
+        assertEq(token.balanceOf(address(token)), 0);
+        assertEq(token.balanceOf(safeRecipient), amount - fee);
+        assertEq(token.balanceOf(feeCollector), fee);
+    }
+
+    function test_recoverERC20_selfToken_exemptContractSendsFullAmount() public {
+        // With the contract in the exemption list no fee is charged
+        uint256 amount = 10_000 * 10 ** 18;
+        token.mint(address(token), amount);
+        token.addTransferFeeExempt(address(token));
+
+        vm.expectEmit(true, true, false, true, address(token));
+        emit IERC20.Transfer(address(token), safeRecipient, amount);
+
+        vm.prank(recoverer);
+        token.recoverERC20(address(token), safeRecipient, amount);
+
+        assertEq(token.balanceOf(address(token)), 0);
+        assertEq(token.balanceOf(safeRecipient), amount);
+        assertEq(token.balanceOf(feeCollector), 0);
+    }
+
+    function test_recoverERC20_selfToken_revertsWhenPaused() public {
+        // The standard transfer path enforces pause
+        uint256 amount = 100 * 10 ** 18;
+        token.mint(address(token), amount);
+
+        token.pause();
+
+        vm.prank(recoverer);
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        token.recoverERC20(address(token), safeRecipient, amount);
     }
 
     // ─────────────────────────────────────────────
@@ -143,8 +252,11 @@ contract TokenRecoverableTest is Test {
     function test_recoverETH_nonRecovererReverts() public {
         vm.deal(address(token), 1 ether);
 
+        bytes32 role = token.RECOVERER_ROLE();
         vm.prank(nonRecoverer);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonRecoverer, role)
+        );
         token.recoverETH(payable(safeRecipient), 1 ether);
     }
 
@@ -157,7 +269,8 @@ contract TokenRecoverableTest is Test {
     }
 
     function test_recoverETH_sendToContractThatRejectsETHReverts() public {
-        // Deploy a contract that has no payable receive — will reject ETH
+        // Deploy a contract that has no payable receive — will reject ETH.
+        // recoverETH still uses the custom TransferFailed error (unchanged in v2)
         RejectingRecipient rejector = new RejectingRecipient();
         vm.deal(address(token), 1 ether);
 
@@ -186,8 +299,11 @@ contract TokenRecoverableTest is Test {
     function test_recoverERC721_nonRecovererReverts() public {
         uint256 tokenId = mockERC721.mint(address(token));
 
+        bytes32 role = token.RECOVERER_ROLE();
         vm.prank(nonRecoverer);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonRecoverer, role)
+        );
         token.recoverERC721(address(mockERC721), safeRecipient, tokenId);
     }
 
@@ -200,11 +316,14 @@ contract TokenRecoverableTest is Test {
     }
 
     function test_recoverERC721_nonOwnedTokenReverts() public {
-        // Token not owned by the proxy — safeTransferFrom will revert internally
+        // Token not owned by the proxy — the typed IERC721.safeTransferFrom lets
+        // the underlying ERC-721 error bubble up (no more TransferFailed wrapper)
         uint256 tokenId = mockERC721.mint(safeRecipient); // owned by safeRecipient, not token contract
 
         vm.prank(recoverer);
-        vm.expectRevert(ERC20RecoverableUpgradeable.TransferFailed.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, address(token), tokenId)
+        );
         token.recoverERC721(address(mockERC721), safeRecipient, tokenId);
     }
 
@@ -216,7 +335,7 @@ contract TokenRecoverableTest is Test {
         uint256 amount = 0.1 ether;
         vm.deal(address(this), amount);
 
-        (bool ok, ) = address(token).call{value: amount}("");
+        (bool ok,) = address(token).call{value: amount}("");
         assertTrue(ok);
         assertEq(address(token).balance, amount);
     }
@@ -252,4 +371,18 @@ contract TokenRecoverableTest is Test {
 /// @dev Helper contract that rejects ETH (no receive/fallback)
 contract RejectingRecipient {
     // Intentionally no receive() — any ETH sent here will revert
+}
+
+/// @dev Minimal ERC-20 whose transfer always returns false (never reverts):
+/// SafeERC20 must surface this as SafeERC20FailedOperation(token)
+contract FalseReturningERC20 {
+    mapping(address => uint256) public balanceOf;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function transfer(address, uint256) external pure returns (bool) {
+        return false;
+    }
 }

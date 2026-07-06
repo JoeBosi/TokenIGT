@@ -23,7 +23,10 @@ contract MockERC1363Receiver is IERC1363Receiver, IERC1363Spender {
      * @param data Additional data with no specified format
      * @return ERC1363_RECEIVED selector
      */
-    function onTransferReceived(address operator, address from, uint256 value, bytes calldata data) external returns (bytes4) {
+    function onTransferReceived(address operator, address from, uint256 value, bytes calldata data)
+        external
+        returns (bytes4)
+    {
         emit TransferReceived(operator, from, value, data);
         return ERC1363_RECEIVED;
     }
