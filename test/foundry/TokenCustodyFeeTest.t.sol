@@ -738,4 +738,62 @@ contract TokenCustodyFeeTest is Test {
         assertEq(token.balanceOf(holderA), uint256(balance) - expectedFee);
         assertEq(token.balanceOf(custodyTreasuryAddr), expectedFee);
     }
+
+    /// @dev POLICY (coerente con D3): la treasury FROZEN riceve comunque la
+    /// custody fee — il prelievo bypassa i check anche in ricezione
+    function test_sweep_worksWithFrozenTreasury() public {
+        token.mint(holderA, 10_000 * 10 ** 18);
+        token.freeze(custodyTreasuryAddr);
+
+        uint256 expectedFee = (token.balanceOf(holderA) * CUSTODY_FEE_BPS) / 10000;
+
+        address[] memory holders = new address[](1);
+        holders[0] = holderA;
+        token.sweepCustodyFee(holders);
+
+        assertEq(token.balanceOf(custodyTreasuryAddr), expectedFee);
+    }
+
+    /// @dev POLICY: idem con treasury in blocklist
+    function test_sweep_worksWithBlockedTreasury() public {
+        token.mint(holderA, 10_000 * 10 ** 18);
+        token.blockAccount(custodyTreasuryAddr);
+
+        uint256 expectedFee = (token.balanceOf(holderA) * CUSTODY_FEE_BPS) / 10000;
+
+        address[] memory holders = new address[](1);
+        holders[0] = holderA;
+        token.sweepCustodyFee(holders);
+
+        assertEq(token.balanceOf(custodyTreasuryAddr), expectedFee);
+    }
+
+    /// @dev batch vuoto: no-op senza revert
+    function test_sweep_emptyBatch_noop() public {
+        uint256 treasuryBefore = token.balanceOf(custodyTreasuryAddr);
+
+        token.sweepCustodyFee(new address[](0));
+
+        assertEq(token.balanceOf(custodyTreasuryAddr), treasuryBefore);
+        assertEq(token.currentCycle(), 1);
+    }
+
+    /// @dev profilo gas: guardia anti-regressione per il dimensionamento dei
+    /// batch operativi (runbook). Budget: < 100k gas per holder.
+    function test_sweep_gasProfile_batch100() public {
+        uint256 n = 100;
+        address[] memory holders = new address[](n);
+        for (uint256 i = 0; i < n; i++) {
+            holders[i] = address(uint160(0x6A5000 + i));
+            token.mint(holders[i], 1_000 * 10 ** 18);
+        }
+
+        uint256 gasBefore = gasleft();
+        token.sweepCustodyFee(holders);
+        uint256 used = gasBefore - gasleft();
+
+        emit log_named_uint("gas totale sweep batch 100 holder", used);
+        emit log_named_uint("gas medio per holder", used / n);
+        assertLt(used / n, 100_000, "gas per holder oltre il budget del runbook");
+    }
 }

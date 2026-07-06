@@ -628,4 +628,50 @@ contract TokenERC1363Test is Test {
         assertEq(token.balanceOf(FEE_COLLECTOR), collectorBefore + fee);
         assertEq(token.balanceOf(sender), senderBefore - amount - fee);
     }
+
+    /// @dev Reentrancy avversariale: un receiver che rientra nel token durante
+    /// onTransferReceived non può corrompere lo stato — il settlement avviene
+    /// PRIMA del callback (pattern CEI). Il rientro è un normale transfer dei
+    /// fondi già ricevuti; la conservazione dei balance resta esatta.
+    function test_transferAndCall_reentrantReceiver_stateConsistent() public {
+        _enableFee();
+        ReentrantReceiver reentrant = new ReentrantReceiver(token, eoa);
+
+        uint256 amount = 1_000 * 10 ** 18;
+        uint256 outerFee = (amount * FEE_BPS) / 10000; // percorso lordo (sender paga)
+        uint256 innerFee = (amount * FEE_BPS) / 10000; // re-transfer netto del receiver
+
+        uint256 senderBefore = token.balanceOf(sender);
+
+        vm.prank(sender);
+        token.transferAndCall(address(reentrant), amount);
+
+        assertTrue(reentrant.reentered());
+        // il receiver ha ricevuto `amount` e l'ha ri-trasferito tutto nel callback
+        assertEq(token.balanceOf(address(reentrant)), 0);
+        assertEq(token.balanceOf(eoa), amount - innerFee);
+        assertEq(token.balanceOf(sender), senderBefore - amount - outerFee);
+        assertEq(token.balanceOf(FEE_COLLECTOR), outerFee + innerFee);
+    }
+}
+
+/// @dev Receiver malevolo che rientra nel token durante il callback ERC-1363
+contract ReentrantReceiver {
+    Token public token;
+    address public exitTarget;
+    bool public reentered;
+
+    constructor(Token token_, address exitTarget_) {
+        token = token_;
+        exitTarget = exitTarget_;
+    }
+
+    function onTransferReceived(address, address, uint256 value, bytes calldata) external returns (bytes4) {
+        if (!reentered) {
+            reentered = true;
+            // rientro nel token: i balance sono già regolati (CEI)
+            token.transfer(exitTarget, value);
+        }
+        return this.onTransferReceived.selector;
+    }
 }

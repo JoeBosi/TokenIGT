@@ -3,8 +3,10 @@
 > Data run: 2026-07-06 · Branch `2026706ClaudeCode` · Ambiente: **locale**
 > (Foundry EVM in-process + rete Hardhat effimera — nessun test su Polygon/Amoy incluso)
 >
-> **Esito complessivo: 433 test eseguiti, 433 passati, 0 falliti**
-> (244 Foundry: unit + fuzz + invariant · 189 Hardhat/TypeScript)
+> **Esito complessivo: 447 test eseguiti, 447 passati, 0 falliti**
+> (258 Foundry: unit + fuzz + invariant · 189 Hardhat/TypeScript)
+> Aggiornamento 2026-07-06: +14 test di chiusura lacune (vedi §21 — policy collector,
+> treasury, reentrancy, cross-chain, gas profile, governance)
 
 **Legenda**
 - `[F]` = test Foundry (Solidity) · `[H]` = test Hardhat (TypeScript)
@@ -16,27 +18,27 @@
 
 | Area | N. test | Esito |
 |---|---:|---|
-| Initialize e validazioni deploy | 16 | 🟢 tutti OK |
+| Initialize e validazioni deploy | 17 | 🟢 tutti OK |
 | ERC-20 core (transfer/approve/metadata) | 34 | 🟢 tutti OK |
 | Supply (mint/burn) | 22 | 🟢 tutti OK |
 | Transfer fee — configurazione | 30 | 🟢 tutti OK |
-| Transfer fee — semantica netta e lorda | 42 | 🟢 tutti OK |
+| Transfer fee — semantica netta e lorda (+ policy collector) | 45 | 🟢 tutti OK |
 | View di preview | 13 | 🟢 tutti OK |
 | Matrice fee = 0 | 13 | 🟢 tutti OK |
-| Custody fee | 57 | 🟢 tutti OK |
+| Custody fee (+ treasury policy, batch vuoto, gas) | 61 | 🟢 tutti OK |
 | Freeze | 21 | 🟢 tutti OK |
 | Blocklist | 19 | 🟢 tutti OK |
 | Pausable | 15 | 🟢 tutti OK |
-| Access control / ruoli | 25 | 🟢 tutti OK |
-| EIP-2612 Permit + EIP-5267 | 13 | 🟢 tutti OK |
-| EIP-3009 (firme e settlement) | 29 | 🟢 tutti OK |
-| ERC-1363 (callback e allowance) | 40 | 🟢 tutti OK |
+| Access control / ruoli (+ getRoleAdmin, lockout admin) | 27 | 🟢 tutti OK |
+| EIP-2612 Permit + EIP-5267 (+ flusso gasless completo) | 14 | 🟢 tutti OK |
+| EIP-3009 (+ replay cross-chain) | 30 | 🟢 tutti OK |
+| ERC-1363 (+ reentrancy avversariale) | 41 | 🟢 tutti OK |
 | Recovery | 31 | 🟢 tutti OK |
-| Upgrade UUPS | 15 | 🟢 tutti OK |
+| Upgrade UUPS (+ implementation non-UUPS) | 16 | 🟢 tutti OK |
 | Storage layout ERC-7201 | 6 | 🟢 tutti OK |
 | Interazioni cross-feature + edge case | 20 | 🟢 tutti OK |
 | Invariant (stateful fuzzing) | 7 | 🟢 tutti OK |
-| **Totale** | **433** | **🟢 433 / 🔴 0** |
+| **Totale** | **447** | **🟢 447 / 🔴 0** |
 
 ---
 
@@ -559,27 +561,35 @@
 
 ---
 
-## 21. ⚪ NON TESTATO — lacune identificate e consigli
+## 21. Lacune identificate → CHIUSE (2026-07-06)
 
-| Metodo/area | Cosa manca | Rischio | Consiglio | Esito |
+Le 11 lacune chiudibili in locale sono state chiuse con **14 nuovi test** (tutti 🟢).
+Decisione di policy dell'utente: **il collector incassa comunque le fee anche se
+bloccato/congelato** — se la gamba fee revertasse, bloccare il collector
+paralizzerebbe l'intero token; il rimedio a un collector compromesso è
+`setFeeCollector(nuovo)`. Policy fissata nei NatSpec di `Token._update`, in
+AGENTS.md §8.1 e nei test guardiani qui sotto.
+
+| Metodo/area | Test aggiunto | Risultato atteso | Ottenuto | Esito |
 |---|---|---|---|---|
-| gamba fee → collector blocked/frozen | La seconda gamba del transfer (fee al collector) NON passa dai security check: un collector bloccato/congelato **riceve comunque le fee**. Comportamento non specificato né testato. | Medio: incoerenza di policy se il collector finisse in blocklist | Decidere la policy (probabilmente ok così, il collector è "di casa") e **aggiungere un test che la documenti** | ⚪ |
-| treasury blocked/frozen su sweep | Lo sweep verso una treasury bloccata/congelata funziona (bypass D3), ma il caso specifico non è testato | Basso (D3 lo copre concettualmente) | Test esplicito `sweep con treasury frozen` | ⚪ |
-| `sweepCustodyFee([])` | Batch vuoto mai testato | Trascurabile (atteso: no-op) | Test one-liner | ⚪ |
-| gas del batch sweep | Nessun test misura il gas per holder né il batch massimo pratico (~stimati 50-70k/holder) | Medio operativo: batch troppo grandi falliscono on-chain | `forge test --gas-report` su batch da 50/100/200 holder e fissare la taglia batch nel runbook | ⚪ |
-| reentrancy avversariale ERC-1363 | Il pattern CEI è rispettato (callback dopo il settlement) ma non esiste un test con receiver malevolo che rientra in `transferAndCall`/`transfer` | Basso (design corretto) ma è LA classica superficie d'attacco | Mock `ReentrantReceiver` che tenta il rientro: asserire che lo stato resti coerente | ⚪ |
-| replay cross-chain EIP-712 | Nessun test verifica che una firma con chainId diverso venga rifiutata (protezione garantita da OZ EIP712, ma non asserita) | Basso | Test con domain separator di un'altra chain → `InvalidSignature` | ⚪ |
-| flusso gasless completo | `permit` + `transferFrom` combinati in un'unica sequenza relayer non testati insieme | Basso | Test d'integrazione "permit→transferFrom" con fee attiva | ⚪ |
-| `initialize` con holder=0 e supply>0 | Il mint iniziale viene silenziosamente saltato: comportamento voluto ma non testato | Basso | Test che documenti il comportamento (supply=0 dopo init) | ⚪ |
-| `getRoleAdmin` | Mai chiamata nei test (default: DEFAULT_ADMIN_ROLE per tutti i ruoli) | Trascurabile | Assertion in token.roles.spec.ts | ⚪ |
-| `renounceRole` dell'ultimo admin | Rinunciare a DEFAULT_ADMIN_ROLE dall'unico admin → governance lockout (comportamento standard OZ, irreversibile) | Alto operativo, non di codice | Test documentativo + regola nel runbook: mai renounce senza secondo admin attivo | ⚪ |
-| `upgradeToAndCall` verso implementation non-UUPS | Il rollback check OZ rifiuta implementation senza `proxiableUUID`: gestito da OZ, non asserito | Basso | Test con contratto dummy → `ERC1967InvalidImplementation` | ⚪ |
-| mutation testing | La suite non è mai stata "attaccata" con mutanti (richiede workflow multi-agente o `mewt`/`muton`) | Medio: il coverage alto non garantisce che i test *uccidano* i bug | Campagna di mutation testing con la skill `mutation-testing` quando i workflow tornano disponibili | ⚪ |
-| fork test su Amoy | Tutti i test girano su EVM locale; nessun test forka la testnet per validare il contratto DEPLOYATO | Basso (smoke test manuale fatto) | `forge test --fork-url $AMOY_RPC_URL` con suite di sole letture sul proxy reale | ⚪ |
+| gamba fee → collector blocked (netto) | [F] `test_policy_blockedCollectorStillReceivesFee_netPath` | collector bloccato incassa la fee; ma NON può spendere (AccountBlocked) | = | 🟢 OK |
+| gamba fee → collector frozen (netto) | [F] `test_policy_frozenCollectorStillReceivesFee_netPath` | idem con freeze | = | 🟢 OK |
+| gamba fee → collector blocked (lordo) | [F] `test_policy_blockedCollectorStillReceivesFee_grossPath` | policy identica su ERC-1363 | = | 🟢 OK |
+| treasury frozen su sweep | [F] `test_sweep_worksWithFrozenTreasury` | la treasury congelata riceve la custody fee (coerente con D3) | = | 🟢 OK |
+| treasury blocked su sweep | [F] `test_sweep_worksWithBlockedTreasury` | idem con blocklist | = | 🟢 OK |
+| `sweepCustodyFee([])` | [F] `test_sweep_emptyBatch_noop` | batch vuoto = no-op senza revert | = | 🟢 OK |
+| gas del batch sweep | [F] `test_sweep_gasProfile_batch100` | budget < 100k gas/holder | **30.481 gas/holder** (3,05M per 100) — su Polygon batch da ~300 holder ≈ 9M gas, ampiamente fattibili | 🟢 OK |
+| reentrancy avversariale ERC-1363 | [F] `test_transferAndCall_reentrantReceiver_stateConsistent` | receiver malevolo che rientra nel token durante il callback: stato coerente, conservazione esatta (CEI) | = | 🟢 OK |
+| replay cross-chain EIP-712 | [F] `test_transferWithAuthorization_wrongChainIdSignatureReverts` | firma su domain separator con chainId diverso → `InvalidSignature` | = | 🟢 OK |
+| flusso gasless completo | [F] `test_permitThenTransferFrom_gaslessFlow` | permit (firma) + transferFrom dal relayer, fee 1% dedotta, nonce+1 | = | 🟢 OK |
+| `initialize` holder=0 con supply>0 | [F] `test_init_zeroHolderWithSupply_skipsMintSilently` | mint saltato silenziosamente, supply=0 | = | 🟢 OK |
+| `getRoleAdmin` | [F] `test_getRoleAdmin_defaultAdminForAllRoles` | DEFAULT_ADMIN_ROLE è role admin di tutti gli 8 ruoli | = | 🟢 OK |
+| `renounceRole` ultimo admin | [F] `test_renounceLastAdmin_locksGovernanceIrreversibly` | lockout irreversibile documentato; regola operativa in AGENTS.md §16.11 | = | 🟢 OK |
+| upgrade verso non-UUPS | [F] `test_upgradeToNonUUPSImplementationReverts` | implementation senza `proxiableUUID` rifiutata | = | 🟢 OK |
 
-### Consigli di rinforzo — priorità
+### ⚪ Ancora aperte (non chiudibili in locale / rimandate)
 
-1. **Alta**: test di policy per collector/treasury in blocklist (prima riga) + regola runbook per `renounceRole` dell'admin.
-2. **Media**: gas-profiling dello sweep per dimensionare i batch; mock di reentrancy ERC-1363.
-3. **Bassa**: i test "documentativi" rimanenti (batch vuoto, holder=0, getRoleAdmin, cross-chain, non-UUPS) — ~1 ora di lavoro complessiva, chiudono ogni residuo.
-4. **Quando i workflow tornano disponibili**: mutation testing sull'intera suite — è il passo che trasforma "coverage 100%" in "i test trovano davvero i bug".
+| Area | Perché aperta | Consiglio |
+|---|---|---|
+| Mutation testing | Richiede i workflow multi-agente (bloccati dal limite di spesa) o una campagna `mewt`/`muton` dedicata | Da fare pre-mainnet: trasforma "coverage 100%" in "i test uccidono davvero i bug" |
+| Fork test su Amoy | I test girano su EVM locale; il contratto deployato è stato validato solo con lo smoke test manuale | `forge test --fork-url $AMOY_RPC_URL` con suite di sole letture sul proxy reale — utile prima del mainnet |

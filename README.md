@@ -47,11 +47,11 @@ pausa e recovery.
 
 ## Testing
 
-**433 test, tutti passanti** (stato 2026-07-06):
+**447 test, tutti passanti** (stato 2026-07-06):
 
 ```shell
 pnpm test        # 189 test Hardhat (~6s)
-forge test       # 244 test Foundry: 
+forge test       # 258 test Foundry: 
                  #   unit + fuzz + invariant (~18s)
 forge coverage   # Token.sol: 100% lines/branches; estensioni: 100% branches
 ```

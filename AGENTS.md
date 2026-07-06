@@ -118,7 +118,7 @@ a fine fase di sviluppo/testing, dopo audit esterno.
 
 - **Target**: ≥95% lines / ≥90% branches sui contratti core (attuale: Token 100%/100%,
   estensioni ≥93,6% lines e 100% branches — residuo = `__init_unchained` vuote)
-- Stato attuale: **433 test verdi** (244 Foundry: unit+fuzz+invariant; 189 Hardhat)
+- Stato attuale: **447 test verdi** (258 Foundry: unit+fuzz+invariant; 189 Hardhat)
 - Ogni funzione privilegiata DEVE avere il test "ruolo sbagliato → 
   `AccessControlUnauthorizedAccount`" su entrambe le suite
 - Ogni feature nuova: test in ENTRAMBE le suite (Foundry = fuzz/invariant,
@@ -157,6 +157,13 @@ Ruolo: `FEE_MANAGER_ROLE`. Fee: `value * bps / 10000` (floor).
 - due eventi `Transfer`; allowance consumata per `value`
 - infinite allowance (`type(uint256).max`) MAI decrementata
 - `collector == from`: la fee resta al mittente, un solo evento
+- **POLICY collector** (decisione 2026-07-06): la gamba fee verso il collector
+  BYPASSA blocklist/freeze — un collector bloccato/congelato riceve comunque le
+  fee. Se revertasse, bloccare il collector paralizzerebbe l'intero token; il
+  rimedio a un collector compromesso è `setFeeCollector(nuovo)`, non il blocco
+  (che resta utile: gli impedisce di spendere mentre continua ad accumulare).
+  Coerente con D3 (treasury). Test guardiani: `test_policy_*` in
+  TokenFeeSemanticsTest — non rimuoverli né cambiare il comportamento.
 
 ### 8.2 Percorso LORDO — ERC-1363 / EIP-3009
 `transferAndCall`, `transferFromAndCall`, `transferWithAuthorization`,
@@ -271,7 +278,7 @@ standard (paga transfer fee e rispetta la pausa) — comportamento documentato e
 
 1. Compilare senza warning propri (0.8.28, optimizer 200 runs, cancun) e con
    `forge fmt --check` pulito (CI).
-2. **Tutti i 433 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
+2. **Tutti i 447 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
 3. Validare ogni upgrade con OZ Upgrades; mai modificare layout esistenti.
 4. NatSpec completo su funzioni pubbliche/external, eventi ed errori custom.
 5. Moduli custom coperti ≥95% lines / 100% branches.
@@ -281,6 +288,9 @@ standard (paga transfer fee e rispetta la pausa) — comportamento documentato e
 9. Dopo ogni modifica seguire `aggiornamento_documenti.md` per riarmonizzare i documenti.
 10. Interazioni cross-feature (fee × 3009/1363, sweep × pausa/freeze/block)
     documentate nei NatSpec e coperte da test dedicati.
+11. **REGOLA OPERATIVA `renounceRole`**: mai rinunciare a `DEFAULT_ADMIN_ROLE`
+    senza un secondo admin già attivo — il lockout della governance è
+    irreversibile (nessuno può più fare grant/revoke). Vale per ogni rete.
 
 ---
 
@@ -290,7 +300,7 @@ standard (paga transfer fee e rispetta la pausa) — comportamento documentato e
 pnpm install                # setup
 pnpm hardhat compile        # compile + typechain
 pnpm test                   # 189 test Hardhat
-forge test                  # 244 test Foundry (unit+fuzz+invariant)
+forge test                  # 258 test Foundry (unit+fuzz+invariant)
 forge coverage              # coverage core
 forge fmt                   # format (CI: forge fmt --check)
 forge build --sizes         # check EIP-170

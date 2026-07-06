@@ -11,7 +11,7 @@ sweep, cicli, pausa, frozen/blocked, fee=0, access control) e
 `token.feesemantics.spec.ts` (doppia semantica netto/lordo, preview, EIP-3009
 lordo, matrice fee=0, infinite allowance).
 
-### Foundry (`forge test`) — 244 test ✅ / 0 ❌ (~18s)
+### Foundry (`forge test`) — 258 test ✅ / 0 ❌ (~18s)
 
 | Suite | Contenuto |
 |---|---|
@@ -25,7 +25,7 @@ lordo, matrice fee=0, infinite allowance).
 | `TokenFeeSemanticsTest` 🆕 | doppia semantica, preview fuzz (minimalità), matrice fee=0 |
 | `TokenStorageLayoutTest` 🆕 | conformità ERC-7201 verificata on-chain con vm.load |
 
-### Totale: **433 ✅ / 0 ❌**
+### Totale: **447 ✅ / 0 ❌**
 
 ## Coverage (`forge coverage`, core contracts)
 

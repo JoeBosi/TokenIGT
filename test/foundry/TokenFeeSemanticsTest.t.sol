@@ -609,4 +609,59 @@ contract TokenFeeSemanticsTest is Test {
         );
         token.transferFromAndCall(alice, bob, AMOUNT);
     }
+
+    // ─────────────────────────────────────────────
+    // POLICY collector blocked/frozen (decisione 2026-07-06)
+    // La gamba fee verso il collector bypassa blocklist/freeze: se revertasse,
+    // bloccare il collector paralizzerebbe ogni transfer non esente del token.
+    // Questi test sono GUARDIANI della policy: non rimuoverli.
+    // ─────────────────────────────────────────────
+
+    /// @dev collector in blocklist: il transfer (percorso netto) funziona e il
+    /// collector incassa comunque la fee
+    function test_policy_blockedCollectorStillReceivesFee_netPath() public {
+        token.blockAccount(feeCollector);
+        assertTrue(token.isBlocked(feeCollector));
+
+        vm.prank(alice);
+        token.transfer(bob, AMOUNT);
+
+        assertEq(token.balanceOf(bob), AMOUNT - FEE_ON_AMOUNT);
+        assertEq(token.balanceOf(feeCollector), FEE_ON_AMOUNT);
+
+        // ...ma il collector bloccato NON può spendere quanto accumulato
+        vm.prank(feeCollector);
+        vm.expectRevert(ERC20BlocklistUpgradeable.AccountBlocked.selector);
+        token.transfer(bob, 1);
+    }
+
+    /// @dev collector frozen: stessa policy del blocco
+    function test_policy_frozenCollectorStillReceivesFee_netPath() public {
+        token.freeze(feeCollector);
+        assertTrue(token.isFrozen(feeCollector));
+
+        vm.prank(alice);
+        token.transfer(bob, AMOUNT);
+
+        assertEq(token.balanceOf(bob), AMOUNT - FEE_ON_AMOUNT);
+        assertEq(token.balanceOf(feeCollector), FEE_ON_AMOUNT);
+
+        vm.prank(feeCollector);
+        vm.expectRevert(ERC20FreezableUpgradeable.AccountFrozen.selector);
+        token.transfer(bob, 1);
+    }
+
+    /// @dev la policy vale anche sul percorso LORDO (ERC-1363)
+    function test_policy_blockedCollectorStillReceivesFee_grossPath() public {
+        token.blockAccount(feeCollector);
+
+        uint256 aliceBefore = token.balanceOf(alice);
+
+        vm.prank(alice);
+        token.transferAndCall(bob, AMOUNT);
+
+        assertEq(token.balanceOf(bob), AMOUNT);
+        assertEq(token.balanceOf(alice), aliceBefore - AMOUNT - FEE_ON_AMOUNT);
+        assertEq(token.balanceOf(feeCollector), FEE_ON_AMOUNT);
+    }
 }

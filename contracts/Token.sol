@@ -169,6 +169,15 @@ contract Token is
      * @dev Standard transfer path (transfer/transferFrom/permit-based spends).
      * Net fee semantics: the recipient receives value - fee.
      * Order: BLOCK -> FREEZE -> FEE -> PAUSE (enforced by super._update) -> SETTLEMENT.
+     *
+     * POLICY (decisione 2026-07-06): the fee leg to the collector intentionally
+     * bypasses blocklist/freeze checks — a blocked or frozen collector still
+     * RECEIVES fees. Rationale: if the fee leg reverted, blocking the collector
+     * would paralyze every non-exempt transfer of the token. The collector is a
+     * FEE_MANAGER-chosen address; if compromised, the remedy is
+     * setFeeCollector(new), not blocking it. Blocking it remains useful: it
+     * prevents SPENDING while funds keep accruing. Consistent with D3 (custody
+     * treasury). Guarded by test_policy_* in TokenFeeSemanticsTest.
      */
     function _update(address from, address to, uint256 value)
         internal
@@ -201,6 +210,7 @@ contract Token is
      * @dev Gross transfer path (ERC-1363 and EIP-3009): `to` receives exactly
      * `value`, `from` additionally pays the fee. Pause, blocklist and freeze
      * are enforced; the sender balance must cover value + fee.
+     * Same collector policy as `_update`: the fee leg bypasses blocklist/freeze.
      */
     function _grossTransfer(address from, address to, uint256 value) private {
         _runSecurityChecks(from, to);

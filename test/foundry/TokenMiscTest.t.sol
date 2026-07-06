@@ -492,4 +492,91 @@ contract TokenMiscTest is Test {
         vm.expectRevert(ERC20FreezableUpgradeable.AccountFrozen.selector);
         token.transfer(regularRecipient, amount);
     }
+
+    // ─────────────────────────────────────────────
+    // Governance e amministrazione — test documentativi
+    // ─────────────────────────────────────────────
+
+    /// @dev tutti i ruoli hanno DEFAULT_ADMIN_ROLE come role admin
+    function test_getRoleAdmin_defaultAdminForAllRoles() public view {
+        bytes32 defaultAdmin = token.DEFAULT_ADMIN_ROLE();
+        assertEq(token.getRoleAdmin(token.UPGRADER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.MINTER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.BURNER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.PAUSER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.FREEZER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.BLOCKER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.FEE_MANAGER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.RECOVERER_ROLE()), defaultAdmin);
+    }
+
+    /// @dev DOCUMENTATIVO: rinunciare all'ultimo DEFAULT_ADMIN è un lockout
+    /// IRREVERSIBILE della governance (nessuno può più fare grant/revoke).
+    /// Regola operativa in AGENTS.md §16.11: mai renounce senza secondo admin.
+    function test_renounceLastAdmin_locksGovernanceIrreversibly() public {
+        bytes32 adminRole = token.DEFAULT_ADMIN_ROLE();
+        assertTrue(token.hasRole(adminRole, admin));
+
+        token.renounceRole(adminRole, admin);
+        assertFalse(token.hasRole(adminRole, admin));
+
+        // Da qui la governance è persa: nessun grant possibile
+        // (ruolo letto prima dell'expectRevert: la staticcall lo consumerebbe)
+        bytes32 minterRole = token.MINTER_ROLE();
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, admin, adminRole)
+        );
+        token.grantRole(minterRole, regularSender);
+    }
+
+    /// @dev upgrade verso un contratto NON-UUPS (senza proxiableUUID) rifiutato
+    function test_upgradeToNonUUPSImplementationReverts() public {
+        NotUUPS notUups = new NotUUPS();
+
+        // Il rollback check di OZ reverta (ERC1967InvalidImplementation)
+        vm.expectRevert();
+        token.upgradeToAndCall(address(notUups), "");
+    }
+
+    /// @dev flusso gasless completo: permit (firma EIP-2612) + transferFrom
+    /// eseguiti dal relayer, con transfer fee attiva
+    function test_permitThenTransferFrom_gaslessFlow() public {
+        uint256 ownerPk = 0xBEEF01;
+        address owner = vm.addr(ownerPk);
+        address spender = regularSender;
+        uint256 value = 1_000 * 10 ** 18;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        token.mint(owner, value);
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+                owner,
+                spender,
+                value,
+                token.nonces(owner),
+                deadline
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPk, digest);
+
+        // Il relayer (chiunque) presenta il permit, poi lo spender trasferisce
+        token.permit(owner, spender, value, deadline, v, r, s);
+        assertEq(token.allowance(owner, spender), value);
+        assertEq(token.nonces(owner), 1);
+
+        vm.prank(spender);
+        token.transferFrom(owner, regularRecipient, value);
+
+        // percorso NETTO: fee 1% dedotta, allowance interamente consumata
+        uint256 fee = (value * INITIAL_FEE) / 10000;
+        assertEq(token.balanceOf(regularRecipient), value - fee);
+        assertEq(token.balanceOf(feeCollectorAddr), fee);
+        assertEq(token.allowance(owner, spender), 0);
+    }
 }
+
+/// @dev contratto privo di proxiableUUID per il test di upgrade rifiutato
+contract NotUUPS {}

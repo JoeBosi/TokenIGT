@@ -542,4 +542,31 @@ contract TokenEIP3009Test is Test {
         assertEq(token.balanceOf(recipient), recipientBefore + amount);
         assertEq(token.balanceOf(feeCollector), collectorBefore + fee);
     }
+
+    /// @dev Protezione replay cross-chain: una firma costruita sul domain
+    /// separator di un'ALTRA chain (chainId diverso) viene rifiutata
+    function test_transferWithAuthorization_wrongChainIdSignatureReverts() public {
+        bytes32 nonce = keccak256("cross-chain-replay");
+        uint256 validBefore = block.timestamp + 1 hours;
+        uint256 amount = 1_000;
+
+        bytes32 structHash = keccak256(
+            abi.encode(TRANSFER_WITH_AUTHORIZATION_TYPEHASH, signer, recipient, amount, uint256(0), validBefore, nonce)
+        );
+        // Domain separator forgiato con chainId + 1 (stessa struttura EIP-712)
+        bytes32 foreignDomainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("Test Token")),
+                keccak256(bytes("1")),
+                block.chainid + 1,
+                address(token)
+            )
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", foreignDomainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, digest);
+
+        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        token.transferWithAuthorization(signer, recipient, amount, 0, validBefore, nonce, v, r, s);
+    }
 }
