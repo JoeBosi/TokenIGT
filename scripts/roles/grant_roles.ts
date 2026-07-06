@@ -13,7 +13,7 @@ async function main() {
     BURNER_ROLE: process.env.BURNER_ADDRESS,
     FREEZER_ROLE: process.env.FREEZER_ADDRESS,
     BLOCKER_ROLE: process.env.BLOCKER_ADDRESS,
-    FEE_ADMIN_ROLE: process.env.FEE_ADMIN_ADDRESS,
+    FEE_MANAGER_ROLE: process.env.FEE_MANAGER_ADDRESS || process.env.FEE_ADMIN_ADDRESS,
     RECOVERER_ROLE: process.env.RECOVERER_ADDRESS,
   };
 

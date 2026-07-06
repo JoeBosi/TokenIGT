@@ -14,7 +14,7 @@ async function main() {
     "BURNER_ROLE",
     "FREEZER_ROLE",
     "BLOCKER_ROLE",
-    "FEE_ADMIN_ROLE",
+    "FEE_MANAGER_ROLE",
     "RECOVERER_ROLE",
   ];
 
