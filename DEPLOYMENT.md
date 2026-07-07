@@ -2,18 +2,18 @@
 
 ## Current Deployments
 
-### Amoy Testnet (Active) — v2.0.0
+### Amoy Testnet (Active) — v2.1.0
 
 | Contract | Address |
 |----------|---------|
-| **Token Proxy (UUPS)** | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
-| **Implementation v2.0.0** | `0xaC8Ead1Ed631431B11DDFB336572228bd8c22db0` (verificata ✅) |
+| **Token Proxy (UUPS)** | `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` |
+| **Implementation v2.1.0** | `0xcbc86423AaE09Aa2f67A479acD2aa779e81b78F4` (verificata ✅) |
 
 **Explorer:**
-- Proxy: https://amoy.polygonscan.com/address/0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6
-- Implementation (source verified): https://amoy.polygonscan.com/address/0xaC8Ead1Ed631431B11DDFB336572228bd8c22db0#code
+- Proxy: https://amoy.polygonscan.com/address/0x2b307FabB36e54Fbd0257cE597D7bE277df84922
+- Implementation (source verified): https://amoy.polygonscan.com/address/0xcbc86423AaE09Aa2f67A479acD2aa779e81b78F4#code
 
-**Deploy fresco** (2026-07-06, non upgrade): la v2.0.0 usa nuovi namespace storage
+**Deploy fresco** (2026-07-07, non upgrade — rename recoverNative): la v2.x usa nuovi namespace storage
 ERC-7201 conformi e una nuova `initialize` a 9 parametri — incompatibile con le
 istanze v1.x.
 
@@ -48,6 +48,7 @@ cycle, `previewNet`/`previewGross`/`maxNetTransferable`, ruoli — tutto ✅.
 
 | Versione | Proxy |
 |---|---|
+| v2.0.0 (recoverETH pre-rename) | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
 | v1.6.3-security-fixes | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` |
 | v1.6.2-cleanup-final | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` |
 

@@ -17,7 +17,7 @@
 
 | Severità | Finding | Valutazione |
 |---|---|---|
-| High | `arbitrary-send-eth` in `recoverETH` | **Accettato**: funzione admin gated da `RECOVERER_ROLE`, scopo = recupero fondi inviati per errore |
+| High | `arbitrary-send-eth` in `recoverNative` (ex `recoverETH`) | **Accettato**: funzione admin gated da `RECOVERER_ROLE`, scopo = recupero fondi inviati per errore |
 | Low | `timestamp` in EIP-3009 | **By design**: `validAfter`/`validBefore` sono la semantica dello standard |
 | Info | `dead-code`/`naming` su `__X_init_unchained` | **Convenzione OZ**: pattern standard degli initializer upgradeable, presente anche nelle librerie OZ |
 | Info | `assembly` nei getter storage | **Necessario**: pattern ERC-7201, identico a OZ |

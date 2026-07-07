@@ -423,7 +423,7 @@ contract TokenMiscTest is Test {
     // ─────────────────────────────────────────────
 
     function test_version_returnsV2() public view {
-        assertEq(token.version(), "2.0.0");
+        assertEq(token.version(), "2.1.0");
     }
 
     // ─────────────────────────────────────────────
@@ -460,7 +460,7 @@ contract TokenMiscTest is Test {
         assertEq(tokenV2.getCombinedValue(), supplyBefore);
 
         // V2 reports its own version
-        assertEq(tokenV2.version(), "2.1.0-test");
+        assertEq(tokenV2.version(), "2.2.0-test");
     }
 
     // ─────────────────────────────────────────────

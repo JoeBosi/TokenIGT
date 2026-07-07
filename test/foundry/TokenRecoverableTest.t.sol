@@ -19,7 +19,7 @@ import "./UUPSProxy.sol";
  * Behaviour under test:
  *   recoverERC20  — RECOVERER_ROLE can send any ERC-20 held by proxy to a recipient
  *                   (uses SafeERC20.safeTransfer under the hood)
- *   recoverETH    — RECOVERER_ROLE can send native ETH held by proxy to a recipient
+ *   recoverNative    — RECOVERER_ROLE can send native ETH held by proxy to a recipient
  *   recoverERC721 — RECOVERER_ROLE can send an ERC-721 held by proxy to a recipient
  *                   (uses the typed IERC721.safeTransferFrom — underlying errors bubble up)
  *
@@ -31,7 +31,7 @@ import "./UUPSProxy.sol";
  *   AccessControlUnauthorizedAccount — caller lacks RECOVERER_ROLE
  *   InvalidRecipient                 — to == address(0)
  *   SafeERC20FailedOperation         — ERC-20 transfer returns false (recoverERC20)
- *   TransferFailed                   — ETH send fails (recoverETH)
+ *   NativeTransferFailed                   — native send fails (recoverNative)
  *   ERC721InsufficientApproval       — NFT not owned by the proxy (recoverERC721)
  */
 contract TokenRecoverableTest is Test {
@@ -142,7 +142,7 @@ contract TokenRecoverableTest is Test {
 
     function test_recoverERC20_falseReturningTokenReverts() public {
         // SafeERC20: a token whose transfer returns false must revert with
-        // SafeERC20FailedOperation (no more custom TransferFailed on this path)
+        // SafeERC20FailedOperation (no more custom NativeTransferFailed on this path)
         falseERC20.mint(address(token), 100);
 
         vm.prank(recoverer);
@@ -220,10 +220,10 @@ contract TokenRecoverableTest is Test {
     }
 
     // ─────────────────────────────────────────────
-    // recoverETH
+    // recoverNative
     // ─────────────────────────────────────────────
 
-    function test_recoverETH_sendsETHToRecipient() public {
+    function test_recoverNative_sendsNativeToRecipient() public {
         // Send ETH to proxy (token has receive() function)
         uint256 amount = 1 ether;
         vm.deal(address(token), amount);
@@ -232,24 +232,24 @@ contract TokenRecoverableTest is Test {
         uint256 recipientBefore = safeRecipient.balance;
 
         vm.prank(recoverer);
-        token.recoverETH(payable(safeRecipient), amount);
+        token.recoverNative(payable(safeRecipient), amount);
 
         assertEq(address(token).balance, 0);
         assertEq(safeRecipient.balance, recipientBefore + amount);
     }
 
-    function test_recoverETH_partialAmount() public {
+    function test_recoverNative_partialAmount() public {
         uint256 total = 2 ether;
         uint256 recover = 0.5 ether;
         vm.deal(address(token), total);
 
         vm.prank(recoverer);
-        token.recoverETH(payable(safeRecipient), recover);
+        token.recoverNative(payable(safeRecipient), recover);
 
         assertEq(address(token).balance, total - recover);
     }
 
-    function test_recoverETH_nonRecovererReverts() public {
+    function test_recoverNative_nonRecovererReverts() public {
         vm.deal(address(token), 1 ether);
 
         bytes32 role = token.RECOVERER_ROLE();
@@ -257,26 +257,26 @@ contract TokenRecoverableTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, nonRecoverer, role)
         );
-        token.recoverETH(payable(safeRecipient), 1 ether);
+        token.recoverNative(payable(safeRecipient), 1 ether);
     }
 
-    function test_recoverETH_zeroRecipientReverts() public {
+    function test_recoverNative_zeroRecipientReverts() public {
         vm.deal(address(token), 1 ether);
 
         vm.prank(recoverer);
         vm.expectRevert(ERC20RecoverableUpgradeable.InvalidRecipient.selector);
-        token.recoverETH(payable(address(0)), 1 ether);
+        token.recoverNative(payable(address(0)), 1 ether);
     }
 
-    function test_recoverETH_sendToContractThatRejectsETHReverts() public {
+    function test_recoverNative_sendToContractThatRejectsNativeReverts() public {
         // Deploy a contract that has no payable receive — will reject ETH.
-        // recoverETH still uses the custom TransferFailed error (unchanged in v2)
+        // recoverNative still uses the custom NativeTransferFailed error (unchanged in v2)
         RejectingRecipient rejector = new RejectingRecipient();
         vm.deal(address(token), 1 ether);
 
         vm.prank(recoverer);
-        vm.expectRevert(ERC20RecoverableUpgradeable.TransferFailed.selector);
-        token.recoverETH(payable(address(rejector)), 1 ether);
+        vm.expectRevert(ERC20RecoverableUpgradeable.NativeTransferFailed.selector);
+        token.recoverNative(payable(address(rejector)), 1 ether);
     }
 
     // ─────────────────────────────────────────────
@@ -317,7 +317,7 @@ contract TokenRecoverableTest is Test {
 
     function test_recoverERC721_nonOwnedTokenReverts() public {
         // Token not owned by the proxy — the typed IERC721.safeTransferFrom lets
-        // the underlying ERC-721 error bubble up (no more TransferFailed wrapper)
+        // the underlying ERC-721 error bubble up (no more NativeTransferFailed wrapper)
         uint256 tokenId = mockERC721.mint(safeRecipient); // owned by safeRecipient, not token contract
 
         vm.prank(recoverer);
@@ -331,7 +331,7 @@ contract TokenRecoverableTest is Test {
     // receive() — proxy accepts ETH
     // ─────────────────────────────────────────────
 
-    function test_tokenReceivesETH() public {
+    function test_tokenReceivesNative() public {
         uint256 amount = 0.1 ether;
         vm.deal(address(this), amount);
 
@@ -355,14 +355,14 @@ contract TokenRecoverableTest is Test {
         assertEq(mockERC20.balanceOf(address(token)), 0);
     }
 
-    function testFuzz_recoverETH_amount(uint96 amount) public {
+    function testFuzz_recoverNative_amount(uint96 amount) public {
         vm.assume(amount > 0);
         vm.deal(address(token), amount);
 
         uint256 recipientBefore = safeRecipient.balance;
 
         vm.prank(recoverer);
-        token.recoverETH(payable(safeRecipient), amount);
+        token.recoverNative(payable(safeRecipient), amount);
 
         assertEq(safeRecipient.balance, recipientBefore + amount);
     }

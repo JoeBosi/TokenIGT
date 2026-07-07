@@ -483,17 +483,17 @@
 | `recoverERC20` (self) | [F] `test_recoverERC20_selfToken_revertsWhenPaused` | in pausa reverta (percorso standard) | = | 🟢 OK |
 | `recoverERC20` | [F] `test_recoverERC20_externalTokenWorksWhilePaused` | token ESTERNO recuperabile anche in pausa | = | 🟢 OK |
 | `recoverERC20` | [H] recover: allow/not allow/zero recipient (3 test) | ok/revert/revert | = | 🟢 OK |
-| `recoverETH` | [F] `test_recoverETH_sendsETHToRecipient` | ETH/POL inviato | = | 🟢 OK |
-| `recoverETH` | [F] `test_recoverETH_partialAmount` + fuzz `testFuzz_recoverETH_amount` (2) | importi arbitrari ≤ saldo | = | 🟢 OK |
-| `recoverETH` | [F] `test_recoverETH_zeroRecipientReverts` | revert `InvalidRecipient` | = | 🟢 OK |
-| `recoverETH` | [F] `test_recoverETH_nonRecovererReverts` | revert access control | = | 🟢 OK |
-| `recoverETH` | [F] `test_recoverETH_sendToContractThatRejectsETHReverts` | destinatario che rifiuta ETH → `TransferFailed` | = | 🟢 OK |
-| `recoverETH` | [H] recover: allow/not allow/zero recipient (3 test) | ok/revert/revert | = | 🟢 OK |
+| `recoverNative` | [F] `test_recoverNative_sendsNativeToRecipient` | POL (nativo) inviato | = | 🟢 OK |
+| `recoverNative` | [F] `test_recoverNative_partialAmount` + fuzz `testFuzz_recoverNative_amount` (2) | importi arbitrari ≤ saldo | = | 🟢 OK |
+| `recoverNative` | [F] `test_recoverNative_zeroRecipientReverts` | revert `InvalidRecipient` | = | 🟢 OK |
+| `recoverNative` | [F] `test_recoverNative_nonRecovererReverts` | revert access control | = | 🟢 OK |
+| `recoverNative` | [F] `test_recoverNative_sendToContractThatRejectsNativeReverts` | destinatario che rifiuta la valuta nativa → `NativeTransferFailed` | = | 🟢 OK |
+| `recoverNative` | [H] recover: allow/not allow/zero recipient (3 test) | ok/revert/revert | = | 🟢 OK |
 | `recoverERC721` | [F] `test_recoverERC721_sendsNFTToRecipient` | NFT trasferito | = | 🟢 OK |
 | `recoverERC721` | [F] `test_recoverERC721_nonOwnedTokenReverts` | NFT non posseduto → errore ERC721 | = | 🟢 OK |
 | `recoverERC721` | [F] `test_recoverERC721_zeroRecipientReverts` / `nonRecovererReverts` (2) | revert | = | 🟢 OK |
 | `recoverERC721` | [H] recover: allow/not allow/zero recipient (3 test) | ok/revert/revert | = | 🟢 OK |
-| `receive()` | [F] `test_tokenReceivesETH` | il contratto accetta ETH/POL | = | 🟢 OK |
+| `receive()` | [F] `test_tokenReceivesNative` | il contratto accetta POL (nativo) | = | 🟢 OK |
 
 ## 17. Upgrade UUPS (15)
 

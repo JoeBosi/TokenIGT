@@ -2,6 +2,30 @@
 
 All notable changes to the IGE Token project.
 
+## [2.1.0] - 2026-07-07 — branch 2026706ClaudeCode
+
+> BREAKING (rename ABI): deploy fresco su Amoy.
+
+### Changed
+- **`recoverETH` → `recoverNative`** e **`TransferFailed` → `NativeTransferFailed`**:
+  la funzione recupera la valuta nativa della chain (POL su Polygon), non ETH —
+  il vecchio nome era una convenzione ereditata da Ethereum, semanticamente
+  imprecisa per un token destinato a Polygon. NatSpec aggiornati
+  ("native currency (POL on Polygon)"). Censimento completo: nessun altro nome
+  Ethereum-centrico da correggere (ethers/parseEther = API di libreria,
+  "Etherscan API V2" = nome reale del servizio usato da Polygonscan)
+- Mock di test riallineati: TokenV2 `2.2.0-test`, TokenV3 `2.3.0-test`
+
+### Added (2026-07-06, post-2.0.0)
+- Policy collector (decisione utente): un collector blocked/frozen incassa
+  comunque le fee — la gamba fee bypassa i security check per non paralizzare
+  il token; fissata in NatSpec, AGENTS.md §8.1 e 3 test guardiani `test_policy_*`
+- 14 test di chiusura lacune: treasury frozen/blocked su sweep, batch vuoto,
+  profilo gas sweep (30.481 gas/holder), reentrancy avversariale ERC-1363,
+  replay cross-chain EIP-712, flusso gasless permit+transferFrom, holder=0,
+  getRoleAdmin, lockout ultimo admin (+regola AGENTS §16.11), upgrade non-UUPS
+- Totale test: 447 (258 Foundry + 189 Hardhat)
+
 ## [2.0.0] - 2026-07-06 — branch 2026706ClaudeCode
 
 > BREAKING: richiede deploy fresco (nuovi namespace storage e nuova `initialize`).

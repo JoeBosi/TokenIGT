@@ -60,25 +60,25 @@ describe("Token - Recoverable", function () {
     });
   });
 
-  describe("recoverETH", function () {
-    it("Should allow recoverer to recover ETH", async function () {
+  describe("recoverNative", function () {
+    it("Should allow recoverer to recover native POL", async function () {
       const amount = ethers.parseEther("1");
       await owner.sendTransaction({ to: await token.getAddress(), value: amount });
 
       const balanceBefore = await ethers.provider.getBalance(addr1.address);
-      await token.connect(recoverer).recoverETH(addr1.address, amount);
+      await token.connect(recoverer).recoverNative(addr1.address, amount);
       const balanceAfter = await ethers.provider.getBalance(addr1.address);
 
       expect(balanceAfter - balanceBefore).to.equal(amount);
     });
 
-    it("Should not allow non-recoverer to recover ETH", async function () {
-      await expect(token.connect(addr1).recoverETH(addr1.address, 0))
+    it("Should not allow non-recoverer to recover native POL", async function () {
+      await expect(token.connect(addr1).recoverNative(addr1.address, 0))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
 
     it("Should fail with zero recipient", async function () {
-      await expect(token.connect(recoverer).recoverETH(ethers.ZeroAddress, 0))
+      await expect(token.connect(recoverer).recoverNative(ethers.ZeroAddress, 0))
         .to.be.revertedWithCustomError(token, "InvalidRecipient");
     });
   });

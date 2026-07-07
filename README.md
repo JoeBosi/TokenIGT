@@ -1,4 +1,4 @@
-# TokenIGT — Advanced ERC-20 Token (v2.0.0)
+# TokenIGT — Advanced ERC-20 Token (v2.1.0)
 
 Token ERC-20 avanzato con pattern UUPS upgradeable: ERC-20, EIP-2612 (Permit),
 EIP-3009 (Transfer With Authorization), ERC-1363 (Payable Token), fee di scambio
@@ -22,7 +22,7 @@ pausa e recovery.
   - treasury dedicata, esenzioni enumerabili, eventi di riconciliazione
 - **Freeze binario** / **Blocklist**: restrizioni per account (mittente e destinatario)
 - **Pausable**: pausa di emergenza (unica eccezione: lo sweep di custodia)
-- **Recovery**: recupero di ERC-20/ETH/NFT inviati per errore al contratto (SafeERC20)
+- **Recovery**: recupero di ERC-20/POL(nativo)/NFT inviati per errore al contratto (SafeERC20)
 - **UUPS Upgradeable** con storage ERC-7201 conforme (verificato on-chain nei test)
 - **Access Control**: MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_MANAGER,
   UPGRADER, RECOVERER — matrice completa in [roles.md](./roles.md)

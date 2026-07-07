@@ -46,6 +46,6 @@ contract TokenV3 is TokenV2 {
     }
 
     function version() public pure override returns (string memory) {
-        return "2.2.0-test";
+        return "2.3.0-test";
     }
 }

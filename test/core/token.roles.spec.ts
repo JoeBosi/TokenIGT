@@ -195,7 +195,7 @@ describe("Token - Access Control", function () {
     });
 
     it("Should not allow non-recoverer to recover", async function () {
-      await expect(token.connect(addr1).recoverETH(addr1.address, 0))
+      await expect(token.connect(addr1).recoverNative(addr1.address, 0))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
   });

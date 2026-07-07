@@ -48,6 +48,6 @@ contract TokenV2 is Token {
     }
 
     function version() public pure virtual override returns (string memory) {
-        return "2.1.0-test";
+        return "2.2.0-test";
     }
 }

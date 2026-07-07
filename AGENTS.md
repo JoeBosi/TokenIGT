@@ -37,7 +37,7 @@ contracts/
 │   ├── ERC20BlocklistUpgradeable.sol        # Blocklist (sezione 11)
 │   ├── ERC20EIP3009Upgradeable.sol          # Transfer With Authorization
 │   ├── ERC1363PayableUpgradeable.sol        # ERC-1363 custom (sezione 13)
-│   └── ERC20RecoverableUpgradeable.sol      # recoverERC20/ETH/ERC721 (sezione 14)
+│   └── ERC20RecoverableUpgradeable.sol      # recoverERC20/Native/ERC721 (sezione 14)
 ├── interfaces/IERC3009.sol                  # (le IERC1363* sono quelle ufficiali OZ)
 └── mocks/                                   # TokenV2/V3 (fixture upgrade) + mock ERC20/721/1363
 
@@ -268,7 +268,7 @@ dichiarato in `FeeManagerRole.sol`), `RECOVERER`.
 ## 14. Recovery
 
 `recoverERC20` (SafeERC20 → `SafeERC20FailedOperation` su token non compliant),
-`recoverETH` (`TransferFailed` su call fallita), `recoverERC721` (IERC721 tipizzata).
+`recoverNative` (`NativeTransferFailed` su call fallita), `recoverERC721` (IERC721 tipizzata).
 Ruolo `RECOVERER_ROLE`. Nota: `recoverERC20(address(this),…)` passa dal percorso
 standard (paga transfer fee e rispetta la pausa) — comportamento documentato e testato.
 

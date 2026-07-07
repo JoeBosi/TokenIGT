@@ -6,7 +6,7 @@ Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.m
 ## Contract Addresses
 
 ### Amoy Testnet
-- Deploy v2.0.0 in corso — vedi `deployments/amoy/deploy-info.json` dopo il deploy.
+- **v2.1.0 (attivo)**: proxy `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` · implementation verificata `0xcbc86423AaE09Aa2f67A479acD2aa779e81b78F4`
 - (v1.6.3 storico: proxy `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — DEPRECATO,
   API incompatibile con la v2)
 
@@ -37,7 +37,7 @@ Emette `CycleStarted(1, timestamp)`.
 | `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
 | `mint(to, v)` | MINTER_ROLE |
 | `burn(from, v)` | BURNER_ROLE |
-| `version()` | `"2.0.0"` |
+| `version()` | `"2.1.0"` |
 
 ## Transfer fee (fee di scambio)
 
@@ -101,7 +101,7 @@ Mint/burn esenti da block/freeze/fee (non dalla pausa).
 | Funzione | Note |
 |---|---|
 | `recoverERC20(token, to, amount)` | SafeERC20; con `token == address(this)` passa dal percorso standard (fee+pausa) |
-| `recoverETH(to, amount)` | revert `TransferFailed` se la call fallisce |
+| `recoverNative(to, amount)` | revert `NativeTransferFailed` se la call fallisce |
 | `recoverERC721(nft, to, tokenId)` | `IERC721.safeTransferFrom` |
 
 ## Upgrade (UPGRADER_ROLE)

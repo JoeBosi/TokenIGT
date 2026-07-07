@@ -63,7 +63,7 @@ minimo privilegio).
 | `custodyFeeBps()` / `custodyTreasury()` / `currentCycle()` / `lastSweptCycle(address)` / `isCustodyFeeExempt(address)` / `getCustodyFeeExemptList()` | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— RECOVERY —** | | | | | | | | | | |
 | `recoverERC20(address, address, uint256)` | — | — | — | — | — | — | — | — | ✅ | — |
-| `recoverETH(address payable, uint256)` | — | — | — | — | — | — | — | — | ✅ | — |
+| `recoverNative(address payable, uint256)` | — | — | — | — | — | — | — | — | ✅ | — |
 | `recoverERC721(address, address, uint256)` | — | — | — | — | — | — | — | — | ✅ | — |
 | **— ACCESS CONTROL —** | | | | | | | | | | |
 | `grantRole(bytes32, address)` / `revokeRole(bytes32, address)` | ✅ | — | — | — | — | — | — | — | — | — |
@@ -81,7 +81,7 @@ minimo privilegio).
 | `transferAndCall(...)` / `transferFromAndCall(...)` / `approveAndCall(...)` | — | — | — | — | — | — | — | — | — | 👁️ |
 | `supportsInterface(bytes4)` | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— METADATA —** | | | | | | | | | | |
-| `version()` → `"2.0.0"` | — | — | — | — | — | — | — | — | — | 👁️ |
+| `version()` → `"2.1.0"` | — | — | — | — | — | — | — | — | — | 👁️ |
 
 > \* `renounceRole` è chiamabile solo dall'account stesso che rinuncia al proprio ruolo.
 
