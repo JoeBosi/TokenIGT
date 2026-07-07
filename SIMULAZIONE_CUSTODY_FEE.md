@@ -114,17 +114,20 @@ costante a ogni scala. Il vero costo a grande scala non è il gas ma la
 
 ## 4. Problemi incontrati e come sono stati risolti
 
-### 4.1 🔴→🟢 File v1 "fantasma" ricomparsi in `contracts/` (build rotta)
-Alla prima esecuzione la compilazione è fallita: in `contracts/` erano ricomparse
-le **vecchie versioni v1** dei sorgenti (`Token (1).sol`, `ERC20FeeUpgradeable.sol`,
-`ERC20RestrictedUpgradeable.sol`, le vecchie interfacce IERC1363, mock duplicati
-"(1)"…), tutte untracked, con date di maggio/giugno e permessi diversi — quasi
-certamente un ripristino Finder/iCloud o un drag&drop accidentale. Collidevano con
-i contratti v2 (identifier duplicati). **Risoluzione**: i 16 file sono stati messi
-in quarantena fuori dall'albero (sono copie esatte già presenti nella history git —
-nessuna perdita). **Prevenzione consigliata**: escludere la cartella del progetto
-dalla sincronizzazione iCloud Drive, o aggiungere un check in CI/pre-commit che
-fallisca se in `contracts/` compaiono file untracked.
+### 4.1 🔴→🟢 File duplicati "(1)" da sincronizzazione iCloud/Finder (ricorrente)
+Il problema si è presentato **due volte**. La prima: in `contracts/` erano
+ricomparse le vecchie versioni v1 dei sorgenti (`Token (1).sol`, ecc.), untracked,
+che collidevano coi contratti v2 → build rotta; messe in quarantena.
+La seconda, più grave: iCloud ha duplicato **~50 file in tutto il repo**
+(`README (1).md`, `test/foundry/Token (1).t.sol`, …) e un `git add -A` ne ha
+**committati** una parte → la CI falliva su `forge fmt`.
+**Causa**: la cartella è dentro un percorso sincronizzato da iCloud Drive, che a
+ogni conflitto crea la copia " (1)". **Risoluzione**: rimossi da tracking e
+filesystem; i file canonici sono intatti. **Prevenzione permanente installata**:
+(a) `.gitignore` con pattern `* (1)*` / `* (2)*`; (b) step di guard in CI che
+fallisce con messaggio chiaro se un file ` (N)` viene tracciato.
+**Azione consigliata all'utente**: spostare il repo fuori da iCloud Drive (es.
+`~/Developer` non sincronizzato) — è l'unica soluzione che elimina la causa.
 
 ### 4.2 🔴→🟢 Il batch da 500 holder supera il tx gas cap EIP-7825
 Lo sweep da 500 holder "freddi" (~18M gas) **revertava**: da Fusaka (dic 2025)
