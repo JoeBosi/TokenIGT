@@ -1,4 +1,4 @@
-# API Reference — Token v2.2.0
+# API Reference — Token v2.3.0
 
 Ruoli richiesti e matrice completa in [roles.md](./roles.md).
 Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.md).
@@ -37,7 +37,7 @@ Emette `CycleStarted(1, timestamp)`.
 | `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
 | `mint(to, v)` | MINTER_ROLE |
 | `burn(from, v)` | BURNER_ROLE |
-| `version()` | `"2.2.0"` |
+| `version()` | `"2.3.0"` |
 
 ## Transfer fee (fee di scambio)
 

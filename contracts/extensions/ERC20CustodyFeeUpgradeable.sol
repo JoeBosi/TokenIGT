@@ -71,6 +71,11 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
         $.custodyFeeBps = uint16(initialFeeBps);
         $.custodyTreasury = treasury_;
         $.currentCycle = 1;
+
+        // Emit the initial config so the event log is self-contained for
+        // off-chain monitoring (previous value is 0 / address(0) at init).
+        emit CustodyFeeUpdated(0, initialFeeBps);
+        emit CustodyTreasuryUpdated(address(0), treasury_);
         emit CycleStarted(1, block.timestamp);
     }
 

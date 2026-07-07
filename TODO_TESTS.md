@@ -25,7 +25,7 @@ lordo, matrice fee=0, infinite allowance).
 | `TokenFeeSemanticsTest` 🆕 | doppia semantica, preview fuzz (minimalità), matrice fee=0 |
 | `TokenStorageLayoutTest` 🆕 | conformità ERC-7201 verificata on-chain con vm.load |
 
-### Totale: **453 ✅ / 0 ❌**
+### Totale: **454 ✅ / 0 ❌**
 
 ## Coverage (`forge coverage`, core contracts)
 

@@ -2,6 +2,23 @@
 
 All notable changes to the IGE Token project.
 
+## [2.3.0] - 2026-07-07 — branch 2026706ClaudeCode
+
+### Added
+- **Eventi di config iniziale** dagli initializer (chiude Gap 1 di AUDIT_EVENTI.md):
+  `__ERC20TransferFee_init` emette `TransferFeeUpdated(0, fee)` +
+  `FeeCollectorUpdated(0x0, collector)`; `__ERC20CustodyFee_init` emette
+  `CustodyFeeUpdated(0, fee)` + `CustodyTreasuryUpdated(0x0, treasury)`.
+  Il log off-chain è ora auto-contenuto (storia config ricostruibile dai soli
+  eventi) — utile per il sistema di monitoraggio.
+- Test `test_init_emitsInitialConfigEvents` → **454 test** (262 Foundry + 192 Hardhat).
+- `AUDIT_EVENTI.md`: audit della copertura eventi (verdetto + gap).
+
+### Changed
+- `version()` → `"2.3.0"`. Runtime bytecode 19.118 B (margine EIP-170 +5.458 B).
+
+> Nota: deploy Amoy attivo ancora v2.1.0; questi eventi saranno on-chain al redeploy.
+
 ## [2.2.0] - 2026-07-07 — branch 2026706ClaudeCode
 
 ### Added

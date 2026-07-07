@@ -54,6 +54,11 @@ abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpg
         TransferFeeStorage storage $ = _getTransferFeeStorage();
         $.transferFeeBps = uint16(initialFeeBps);
         $.feeCollector = feeCollector_;
+
+        // Emit the initial config so the event log is self-contained for
+        // off-chain monitoring (previous value is 0 / address(0) at init).
+        emit TransferFeeUpdated(0, initialFeeBps);
+        emit FeeCollectorUpdated(address(0), feeCollector_);
     }
 
     function __ERC20TransferFee_init_unchained() internal onlyInitializing {}

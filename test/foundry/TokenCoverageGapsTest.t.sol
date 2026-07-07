@@ -379,4 +379,44 @@ contract TokenCoverageGapsTest is Test {
 
         assertEq(t.totalSupply(), 0);
     }
+
+    /// @dev Gap 1 (AUDIT_EVENTI.md): initialize emette gli eventi *Updated della
+    /// config iniziale, così il log off-chain è auto-contenuto (monitoraggio).
+    function test_init_emitsInitialConfigEvents() public {
+        uint256 tf = 7;
+        uint256 cf = 123;
+        Token impl = new Token();
+
+        vm.recordLogs();
+        new UUPSProxy(address(impl), _initData(admin, tf, collector, cf, treasury, admin));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bool transferFee;
+        bool feeCollector;
+        bool custodyFee;
+        bool custodyTreasury;
+        for (uint256 i = 0; i < logs.length; i++) {
+            bytes32 sig = logs[i].topics[0];
+            if (sig == keccak256("TransferFeeUpdated(uint256,uint256)")) {
+                (uint256 prev, uint256 next) = abi.decode(logs[i].data, (uint256, uint256));
+                assertEq(prev, 0);
+                assertEq(next, tf);
+                transferFee = true;
+            } else if (sig == keccak256("FeeCollectorUpdated(address,address)")) {
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), address(0)); // previous
+                assertEq(address(uint160(uint256(logs[i].topics[2]))), collector); // new
+                feeCollector = true;
+            } else if (sig == keccak256("CustodyFeeUpdated(uint256,uint256)")) {
+                (uint256 prev, uint256 next) = abi.decode(logs[i].data, (uint256, uint256));
+                assertEq(prev, 0);
+                assertEq(next, cf);
+                custodyFee = true;
+            } else if (sig == keccak256("CustodyTreasuryUpdated(address,address)")) {
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), address(0));
+                assertEq(address(uint160(uint256(logs[i].topics[2]))), treasury);
+                custodyTreasury = true;
+            }
+        }
+        assertTrue(transferFee && feeCollector && custodyFee && custodyTreasury, "config events missing at init");
+    }
 }
