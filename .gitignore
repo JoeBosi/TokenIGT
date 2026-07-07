@@ -10,3 +10,7 @@ abi/
 *.log
 .DS_Store
 out/
+
+# File duplicati da conflitti di sincronizzazione (iCloud/Finder) — mai committare
+*\ (1)*
+*\ (2)*

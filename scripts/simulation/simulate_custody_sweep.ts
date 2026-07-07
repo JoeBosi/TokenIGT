@@ -20,20 +20,30 @@ import path from "path";
  */
 
 const HOLDERS = parseInt(process.env.SIM_HOLDERS || "2000");
-const BATCH_SIZE = parseInt(process.env.SIM_BATCH || "500");
+const BATCH_SIZE = parseInt(process.env.SIM_BATCH || "300");
+// Profilo balance: "magnitudes" = 10/1k/100k/10M IGT (stress su 4 ordini di
+// grandezza) · "business" = detenzione media €2.000/utente ≈ 8,61 IGT
+// (PEG_ORO.md: 1 IGT = 2 g, oro €116,15/g) con dispersione ±75%
+const PROFILE = process.env.SIM_PROFILE || "magnitudes";
 const PROFILE_BATCH_SIZES = [10, 50, 100, 250, 500];
 const CUSTODY_BPS = 50n; // 0,50%
 const TRANSFER_FEE_BPS = 1n; // 0,01% — attiva per verificare che lo sweep NON la paghi
 
 // Balance su 4 ordini di grandezza: 10 → 10M IGT (step di due zeri)
 const MAGNITUDES = [10n, 1_000n, 100_000n, 10_000_000n].map((x) => x * 10n ** 18n);
+// Scenario business: media ESATTA 8,6096 IGT (moltiplicatori a media 1.0)
+const AVG_IGT_MILLI = 8_609n; // 8,609 IGT in millesimi
+const BUSINESS = [250n, 500n, 1000n, 1500n, 1750n].map(
+  (m) => (AVG_IGT_MILLI * m * 10n ** 18n) / 1000n / 1000n
+);
+const BALANCES = PROFILE === "business" ? BUSINESS : MAGNITUDES;
 
 function fmt(x: bigint): string {
   return ethers.formatEther(x);
 }
 
 async function main() {
-  console.log(`\n══ SIMULAZIONE SWEEP CUSTODIA — ${HOLDERS} holder, batch ${BATCH_SIZE} ══\n`);
+  console.log(`\n══ SIMULAZIONE SWEEP CUSTODIA — ${HOLDERS} holder, batch ${BATCH_SIZE}, profilo ${PROFILE} ══\n`);
   const [admin, treasury, collector, probe] = await ethers.getSigners();
 
   // ── 1. Deploy ────────────────────────────────────────────────────────────
@@ -58,7 +68,7 @@ async function main() {
   const t0 = Date.now();
   for (let i = 0; i < HOLDERS; i++) {
     const addr = ethers.getAddress("0x" + (0x100000000000n + BigInt(i)).toString(16).padStart(40, "0"));
-    const balance = MAGNITUDES[i % MAGNITUDES.length];
+    const balance = BALANCES[i % BALANCES.length];
     await (await token.mint(addr, balance)).wait();
     holders.push(addr);
     expectedFee.set(addr, (balance * CUSTODY_BPS) / 10000n);
@@ -129,11 +139,11 @@ async function main() {
 
   // spot check aritmetico sui 4 ordini di grandezza
   const spotChecks: any[] = [];
-  for (let m = 0; m < MAGNITUDES.length; m++) {
+  for (let m = 0; m < BALANCES.length; m++) {
     const h = holders[m];
     const bal = await token.balanceOf(h);
-    const exp = MAGNITUDES[m] - expectedFee.get(h)!;
-    spotChecks.push({ magnitudeIGT: fmt(MAGNITUDES[m]), balanceAfter: fmt(bal), expected: fmt(exp), ok: bal === exp });
+    const exp = BALANCES[m] - expectedFee.get(h)!;
+    spotChecks.push({ magnitudeIGT: fmt(BALANCES[m]), balanceAfter: fmt(bal), expected: fmt(exp), ok: bal === exp });
   }
 
   // ── 5. Ciclo 2: slot lastSweptCycle già scritti → gas inferiore ─────────
@@ -176,7 +186,7 @@ async function main() {
     date: new Date().toISOString(),
     network: "hardhat-local (in-process)",
     tokenVersion: await token.version(),
-    params: { holders: HOLDERS, batchSize: BATCH_SIZE, custodyBps: Number(CUSTODY_BPS), transferFeeBps: Number(TRANSFER_FEE_BPS) },
+    params: { holders: HOLDERS, batchSize: BATCH_SIZE, profile: PROFILE, custodyBps: Number(CUSTODY_BPS), transferFeeBps: Number(TRANSFER_FEE_BPS) },
     checks: {
       pauseBlocksTransfersDuringSweep: pauseBlocked,
       allHoldersSweptCycle1: sweptOk === HOLDERS,
@@ -204,7 +214,7 @@ async function main() {
 
   const outDir = path.join(__dirname, "results");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-  const outFile = path.join(outDir, `sweep-simulation-${HOLDERS}h.json`);
+  const outFile = path.join(outDir, `sweep-simulation-${HOLDERS}h-${PROFILE}.json`);
   fs.writeFileSync(outFile, JSON.stringify(results, null, 2));
 
   console.log("\n══ RISULTATI ══");

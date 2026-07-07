@@ -35,6 +35,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Guard contro file duplicati da sync (iCloud/Finder)
+        run: |
+          ghosts=$(git ls-files | grep -E ' \([0-9]+\)' || true)
+          if [ -n "$ghosts" ]; then
+            echo "::error::File duplicati da conflitto di sincronizzazione trovati nel repo:"
+            echo "$ghosts"
+            exit 1
+          fi
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 

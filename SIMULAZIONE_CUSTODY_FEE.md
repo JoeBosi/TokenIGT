@@ -106,6 +106,12 @@ on-chain dell'incasso è irrilevante — ~**65 centesimi ogni 10.000 € preleva
 costante a ogni scala. Il vero costo a grande scala non è il gas ma la
 **finestra di pausa** (vedi §5).
 
+> **Conferma empirica (run `SIM_PROFILE=business`, 2026-07-07)**: simulati 2.000
+> utenti con detenzione media 8,609 IGT (≈ € 2.000, dispersione ±75%) → incassati
+> **esattamente 86,09 IGT = 172,18 g oro = € 19.998,71 ≈ € 10,00/utente**, con
+> riconciliazione al wei e tutte le 10 verifiche superate. Il gas per holder è
+> identico al profilo stress (35.147/18.056): il costo NON dipende dai balance.
+
 ## 4. Problemi incontrati e come sono stati risolti
 
 ### 4.1 🔴→🟢 File v1 "fantasma" ricomparsi in `contracts/` (build rotta)
@@ -178,10 +184,12 @@ dai cicli successivi la slot è già inizializzata (≈ 5k). Misurato: 35.147 vs
 ### Appendice — Riproducibilità
 
 ```bash
-# simulazione completa (2.000 holder, batch 300, ~1 minuto)
+# profilo stress (balance 10 → 10M IGT su 4 ordini di grandezza)
 SIM_HOLDERS=2000 SIM_BATCH=300 pnpm hardhat run scripts/simulation/simulate_custody_sweep.ts
+# profilo business (detenzione media €2.000/utente ≈ 8,61 IGT — PEG_ORO.md)
+SIM_HOLDERS=2000 SIM_BATCH=300 SIM_PROFILE=business pnpm hardhat run scripts/simulation/simulate_custody_sweep.ts
 # tabelle economiche sui risultati
 python3 scripts/simulation/economics.py
 ```
-Output JSON delle misure: `scripts/simulation/results/sweep-simulation-2000h.json`.
+Output JSON: `scripts/simulation/results/sweep-simulation-2000h-{magnitudes,business}.json`.
 Modello gas (fit sui batch profilati): `gas(n) ≈ 17.942·n + 37.530` per transazione (cicli 2+).
