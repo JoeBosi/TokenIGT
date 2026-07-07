@@ -2,6 +2,23 @@
 
 All notable changes to the IGE Token project.
 
+## [2.2.0] - 2026-07-07 — branch 2026706ClaudeCode
+
+### Added
+- **Evento `AssetRecovered`** in `ERC20RecoverableUpgradeable`, emesso da
+  `recoverERC20` (kind 0), `recoverNative` (kind 1, asset=0x0) e `recoverERC721`
+  (kind 2): `AssetRecovered(AssetKind indexed kind, address indexed asset,
+  address indexed to, uint256 amountOrTokenId, address executor)`. Chiude il gap
+  eventi per il futuro sistema di monitoraggio on-chain (movimenti di fondi da
+  parte del RECOVERER prima non erano tracciabili on-chain per il nativo).
+- 6 test dedicati (3 Foundry + 3 Hardhat) → **453 test totali** (261 + 192).
+
+### Changed
+- `version()` → `"2.2.0"`. Runtime bytecode 18.897 B (margine EIP-170 +5.679 B).
+
+> Nota: il deploy Amoy attivo è ancora v2.1.0 (proxy invariato); l'evento sarà
+> on-chain al prossimo redeploy/upgrade.
+
 ## [2.1.0] - 2026-07-07 — branch 2026706ClaudeCode
 
 > BREAKING (rename ABI): deploy fresco su Amoy.

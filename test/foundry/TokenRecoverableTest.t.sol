@@ -366,6 +366,47 @@ contract TokenRecoverableTest is Test {
 
         assertEq(safeRecipient.balance, recipientBefore + amount);
     }
+
+    // ─────────────────────────────────────────────
+    // AssetRecovered event — hook per il monitoraggio on-chain
+    // ─────────────────────────────────────────────
+
+    function test_recoverERC20_emitsAssetRecovered() public {
+        uint256 amount = 500 * 10 ** 18;
+        mockERC20.mint(address(token), amount);
+
+        vm.expectEmit(true, true, true, true, address(token));
+        emit ERC20RecoverableUpgradeable.AssetRecovered(
+            ERC20RecoverableUpgradeable.AssetKind.ERC20, address(mockERC20), safeRecipient, amount, recoverer
+        );
+        vm.prank(recoverer);
+        token.recoverERC20(address(mockERC20), safeRecipient, amount);
+    }
+
+    function test_recoverNative_emitsAssetRecovered() public {
+        uint256 amount = 1 ether;
+        vm.deal(address(token), amount);
+
+        // asset == address(0) per il nativo
+        vm.expectEmit(true, true, true, true, address(token));
+        emit ERC20RecoverableUpgradeable.AssetRecovered(
+            ERC20RecoverableUpgradeable.AssetKind.Native, address(0), safeRecipient, amount, recoverer
+        );
+        vm.prank(recoverer);
+        token.recoverNative(payable(safeRecipient), amount);
+    }
+
+    function test_recoverERC721_emitsAssetRecovered() public {
+        uint256 tokenId = mockERC721.mint(address(token));
+
+        // per gli NFT il 4° campo è il tokenId
+        vm.expectEmit(true, true, true, true, address(token));
+        emit ERC20RecoverableUpgradeable.AssetRecovered(
+            ERC20RecoverableUpgradeable.AssetKind.ERC721, address(mockERC721), safeRecipient, tokenId, recoverer
+        );
+        vm.prank(recoverer);
+        token.recoverERC721(address(mockERC721), safeRecipient, tokenId);
+    }
 }
 
 /// @dev Helper contract that rejects ETH (no receive/fallback)

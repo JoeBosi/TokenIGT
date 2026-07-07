@@ -1,4 +1,4 @@
-# API Reference — Token v2.0.0
+# API Reference — Token v2.2.0
 
 Ruoli richiesti e matrice completa in [roles.md](./roles.md).
 Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.md).
@@ -37,7 +37,7 @@ Emette `CycleStarted(1, timestamp)`.
 | `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
 | `mint(to, v)` | MINTER_ROLE |
 | `burn(from, v)` | BURNER_ROLE |
-| `version()` | `"2.1.0"` |
+| `version()` | `"2.2.0"` |
 
 ## Transfer fee (fee di scambio)
 
@@ -100,9 +100,11 @@ Mint/burn esenti da block/freeze/fee (non dalla pausa).
 
 | Funzione | Note |
 |---|---|
-| `recoverERC20(token, to, amount)` | SafeERC20; con `token == address(this)` passa dal percorso standard (fee+pausa) |
-| `recoverNative(to, amount)` | revert `NativeTransferFailed` se la call fallisce |
-| `recoverERC721(nft, to, tokenId)` | `IERC721.safeTransferFrom` |
+| `recoverERC20(token, to, amount)` | SafeERC20; con `token == address(this)` passa dal percorso standard (fee+pausa); emette `AssetRecovered` |
+| `recoverNative(to, amount)` | revert `NativeTransferFailed` se la call fallisce; emette `AssetRecovered` (asset=0x0) |
+| `recoverERC721(nft, to, tokenId)` | `IERC721.safeTransferFrom`; emette `AssetRecovered` |
+
+Evento: `AssetRecovered(AssetKind indexed kind, address indexed asset, address indexed to, uint256 amountOrTokenId, address executor)` — `kind`: 0=ERC20, 1=Native, 2=ERC721. Hook primario per il monitoraggio dei movimenti di fondi da parte del RECOVERER.
 
 ## Upgrade (UPGRADER_ROLE)
 

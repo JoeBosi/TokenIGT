@@ -1,6 +1,6 @@
 # Piano lavori — TokenIGT
 
-> Aggiornato: 2026-07-07 · Branch `2026706ClaudeCode` · Token v2.1.0
+> Aggiornato: 2026-07-07 · Branch `2026706ClaudeCode` · Token v2.2.0
 > Documento di stato + pianificazione. Da rileggere all'inizio della prossima sessione.
 
 ---
@@ -10,7 +10,7 @@
 ### ✅ Fatto e verde
 - **Contratti v2.1.0** completi: custody fee a cicli, transfer fee a doppia semantica,
   freeze/blocklist, recovery (`recoverNative`), UUPS, storage ERC-7201 conforme.
-- **447 test** (258 Foundry + 189 Hardhat) tutti verdi; `Token.sol` 100% lines/branches.
+- **453 test** (261 Foundry + 192 Hardhat) tutti verdi; `Token.sol` 100% lines/branches.
 - **CI verde** (ultima run PR e push: success). La CI ora installa le dipendenze npm,
   gira Foundry + Hardhat, ha un guard anti-file-duplicati.
 - **Deploy Amoy v2.1.0**: proxy `0x2b307FabB36e54Fbd0257cE597D7bE277df84922`,
@@ -68,7 +68,7 @@ Il principio corretto:
 - Esistono **alternative/complementi** agli eventi (§3.3) per ciò che gli eventi
   non catturano (es. tentativi falliti, letture di stato, pattern tra più tx).
 
-### 3.2 Copertura eventi attuale (v2.1.0)
+### 3.2 Copertura eventi attuale (v2.2.0)
 
 **Già coperto** (26 tipi di evento tra standard OZ e dominio):
 `Transfer` (incl. mint/burn con from/to=0), `Approval`, `Paused`/`Unpaused`,
@@ -78,12 +78,11 @@ Il principio corretto:
 `CustodyFeeCollected`, `Frozen`/`Unfrozen`, `Blocked`/`Unblocked`,
 `AuthorizationUsed`/`AuthorizationCanceled`.
 
-**GAP identificato** — le funzioni di recovery **non emettono un evento proprio**:
-`recoverNative`, `recoverERC20`, `recoverERC721`. Un prelievo del RECOVERER
-oggi è tracciabile solo indirettamente (il Transfer del token esterno, o nulla
-per il nativo). → **Proposta: aggiungere `AssetRecovered(token, to, amount, kind)`**
-al prossimo redeploy (movimenti di fondi da parte di un ruolo privilegiato sono
-esattamente il tipo di evento che si vuole monitorare).
+**GAP CHIUSO in codice (v2.2.0)** — aggiunto l'evento
+`AssetRecovered(AssetKind kind, address asset, address to, uint256 amountOrTokenId, address executor)`
+emesso da `recoverERC20`/`recoverNative`/`recoverERC721` (kind 0/1/2). Copre i
+movimenti di fondi da parte del RECOVERER. **Manca solo il redeploy su Amoy** per
+avere l'evento anche on-chain (il proxy attuale è ancora v2.1.0 senza l'evento).
 
 ### 3.3 Alternative/complementi agli eventi
 
@@ -132,7 +131,7 @@ base a budget e autonomia desiderata.
 
 ### 3.6 Attività per implementarlo (prossima volta)
 1. Decidere l'architettura (custom vs servizio gestito) e il canale di alert.
-2. Aggiungere `AssetRecovered` al contratto (redeploy Amoy) — chiude il gap eventi.
+2. ✅ `AssetRecovered` aggiunto al contratto (v2.2.0) — resta il **redeploy Amoy** per averlo on-chain.
 3. Definire le soglie numeriche concrete con l'utente (cosa è "strano" per lui).
 4. Prototipo listener + poller su Amoy sul contratto già deployato.
 5. Runbook di risposta agli alert (chi fa cosa quando scatta).

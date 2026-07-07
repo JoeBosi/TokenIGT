@@ -21,8 +21,28 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
 
     bytes32 public constant RECOVERER_ROLE = keccak256("RECOVERER_ROLE");
 
+    /// @dev Kind of asset recovered, for off-chain monitoring/filtering
+    enum AssetKind {
+        ERC20,
+        Native,
+        ERC721
+    }
+
     error InvalidRecipient();
     error NativeTransferFailed();
+
+    /**
+     * @notice Emitted whenever the RECOVERER moves assets out of the contract.
+     * @param kind The asset type recovered (ERC20 / Native / ERC721)
+     * @param asset Token/NFT contract address; address(0) for the native currency
+     * @param to Recipient of the recovered assets
+     * @param amountOrTokenId Amount for ERC-20/native, tokenId for ERC-721
+     * @param executor The account (RECOVERER) that performed the recovery
+     * @dev Privileged fund movement — primary hook for the monitoring system.
+     */
+    event AssetRecovered(
+        AssetKind indexed kind, address indexed asset, address indexed to, uint256 amountOrTokenId, address executor
+    );
 
     function __ERC20Recoverable_init() internal onlyInitializing {}
 
@@ -40,6 +60,7 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
         }
 
         IERC20(token).safeTransfer(to, amount);
+        emit AssetRecovered(AssetKind.ERC20, token, to, amount, msg.sender);
     }
 
     /**
@@ -57,6 +78,7 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
         if (!success) {
             revert NativeTransferFailed();
         }
+        emit AssetRecovered(AssetKind.Native, address(0), to, amount, msg.sender);
     }
 
     /**
@@ -71,6 +93,7 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
         }
 
         IERC721(nft).safeTransferFrom(address(this), to, tokenId);
+        emit AssetRecovered(AssetKind.ERC721, nft, to, tokenId, msg.sender);
     }
 
     /**
