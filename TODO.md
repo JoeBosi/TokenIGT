@@ -17,14 +17,16 @@
 - [x] Deploy fresco su Amoy (v2.1.0) + verify + grant ruoli + smoke test on-chain
 - [x] Simulazione locale del pagamento custodia (`SIMULAZIONE_CUSTODY_FEE.md`) —
       tutte le verifiche 🟢; batch operativo = 300 (tx gas cap EIP-7825)
-- [ ] **Runbook sweep** (`RUNBOOK_SWEEP.md`): checklist pause→batch→unpause, gas
-      budget (ciclo 1 ≈ 2× i successivi), funding POL operatore, riconciliazione
-      come gate per l'unpause, piano ripresa dopo interruzione
-- [ ] **Formalizzare il peg oro** (1 IGT = ? g) in un documento ufficiale
-- [ ] **Indexer holder** da eventi Transfer con verifica di completezza
-- [ ] **Prova generale su Amoy**: seed holder + sweep reale multi-batch (dopo il locale)
-- [ ] Throughput per >100k holder: più tx/blocco, valutare più operatori FEE_MANAGER
-- [ ] Merge del branch in `master` dopo review dell'utente
+- [x] **Runbook sweep** (`RUNBOOK_SWEEP.md`) — ordine vincolante PAUSA→SNAPSHOT→
+      SWEEP→VERIFICA→UNPAUSE, gas budget, funding POL, gate, ripresa, emergenze
+- [x] **Peg oro formalizzato**: 1 IGT = 2 g (`PEG_ORO.md`); detenzione media €2.000/utente
+- [x] **Indexer holder** (`scripts/indexer/sweep_indexer.ts`) — snapshot da eventi
+      Transfer con verifica completezza + gate post-sweep; collaudato end-to-end
+      in locale (riconciliazione esatta al wei, gate negativo/positivo)
+- [x] Badge CI + snippet integrazione nel README
+- [ ] **Prova generale su Amoy** — RIMANDATA su indicazione utente (arriverà con
+      specifiche aggiuntive); includerà collaudo throughput multi-tx/multi-operatore
+- [ ] Merge del branch in `master` dopo review dell'utente (PR pronta)
 
 ## Pre-mainnet (bloccanti per il go-live)
 - [ ] Governance: DEFAULT_ADMIN + UPGRADER su multisig (Safe); valutare

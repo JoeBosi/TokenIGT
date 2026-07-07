@@ -11,19 +11,29 @@
 Il "pagamento del caveau" è **l'incasso della custody fee**: una volta per ciclo
 (riferimento operativo: 20 marzo), il gestore preleva lo 0,50% del saldo di ogni
 holder e lo accredita alla **custody treasury**, che lo usa per pagare custodia e
-assicurazione dell'oro fisico. La procedura completa:
+assicurazione dell'oro fisico.
+
+**Ordine del processo (VINCOLANTE — specifica del 2026-07-07): prima la PAUSA,
+poi lo SNAPSHOT.** L'enumerazione degli holder si fa sullo stato già congelato:
+zero finestre tra snapshot e prelievo, elusione impossibile per costruzione.
 
 ```
-1. (off-chain) L'indexer enumera gli holder dagli eventi Transfer
-2. startNewCycle()            → apre il ciclo N          [FEE_MANAGER]
-3. pause()                    → congela i trasferimenti   [PAUSER]
+1. pause()                    → congela i trasferimenti            [PAUSER]
+2. startNewCycle()            → apre il ciclo N                    [FEE_MANAGER]
+3. SNAPSHOT (off-chain)       → indexer: enumera gli holder dagli eventi
+                                 Transfer sullo stato CONGELATO e verifica la
+                                 completezza (Σ balance == totalSupply)
 4. sweepCustodyFee(batch_1)   → preleva 0,50% da ~300 holder per transazione
-   sweepCustodyFee(batch_2)      · fee calcolata sul saldo AL MOMENTO (mai insufficienza)
+   sweepCustodyFee(batch_2)      · fee calcolata sul saldo AL MOMENTO
    ...                           · idempotente: holder già prelevato nel ciclo = skip
    sweepCustodyFee(batch_K)      · preleva anche da frozen/blocked; esenti saltati
-5. unpause()                  → riapre i trasferimenti    [PAUSER]
-6. (off-chain) riconciliazione: Σ eventi CustodyFeeCollected == delta treasury
+5. VERIFICA (gate)            → ogni holder eleggibile ha lastSweptCycle == N;
+                                 Σ eventi CustodyFeeCollected == delta treasury
+6. unpause()                  → riapre i trasferimenti SOLO se il gate passa [PAUSER]
 ```
+
+Strumenti: `scripts/indexer/sweep_indexer.ts` (INDEXER_MODE=build per lo snapshot
+al punto 3, INDEXER_MODE=verify per il gate al punto 5).
 
 Punti che la simulazione ha **verificato uno per uno**:
 
@@ -44,25 +54,26 @@ Punti che la simulazione ha **verificato uno per uno**:
 
 | Parametro | Valore | Fonte |
 |---|---|---|
-| **Peg oro** | **1 IGT = 1 grammo d'oro fino** | ⚠️ ASSUNZIONE — non definita in nessun documento del progetto (vedi §5) |
+| **Peg oro** | **1 IGT = 2 grammi d'oro fino** → 1 IGT = **€ 232,30** | SPECIFICA UTENTE (2026-07-07), formalizzata in `PEG_ORO.md` |
+| **Detenzione media** | **€ 2.000/utente** (= 8,61 IGT) → prelievo medio **€ 10,00/utente/ciclo** | SPECIFICA UTENTE (2026-07-07) |
 | Oro | **€ 116,15/g** (€ 3.612/oz t) | livepriceofgold.com; cross-check gold-api.com $4.132,50/oz × FX BCE 0,87604 → € 116,4/g (Δ 0,2%) |
 | POL | **€ 0,0655** | CoinGecko (0,065363) + Kraken POL/EUR (0,06559) |
 | Gas Polygon | **280 gwei** (range 278–303) | Polygonscan gastracker: base 246 + priority ~33 |
 | Custody fee | 0,50% (50 bp) — quella configurata on-chain | contratto |
 
-Se il peg fosse diverso (es. 1 IGT = 1 oz troy), tutti i valori EUR della Tabella A
-scalano linearmente: basta rieseguire `economics.py` con `PEG_G_PER_IGT=31.1035`.
+I prezzi sono parametrici in `economics.py` (`GOLD_EUR_G`, `POL_EUR`, `GAS_GWEI`,
+`PEG_G_PER_IGT=2`, `AVG_HOLDING_EUR=2000`): da rieseguire coi valori correnti.
 
 ## 3. Risultanze — come scalano i numeri da 10 a 10 milioni
 
-### Tabella A — Il ritiro per il pagamento del caveau (0,50% al prezzo dell'oro)
+### Tabella A — Il ritiro per il pagamento del caveau (0,50%, peg 2 g/IGT)
 
-| IGT custoditi | Valore custodito | Prelievo (IGT = g oro) | **Prelievo in EUR** |
-|---:|---:|---:|---:|
-| 10 | € 1.161,50 | 0,05 | **€ 5,81** |
-| 1.000 | € 116.150 | 5,00 | **€ 580,75** |
-| 100.000 | € 11.615.000 | 500,00 | **€ 58.075** |
-| 10.000.000 | € 1.161.500.000 | 50.000,00 | **€ 5.807.500** |
+| IGT custoditi | Oro sottostante | Valore custodito | Prelievo (IGT) | **Prelievo in EUR** |
+|---:|---:|---:|---:|---:|
+| 10 | 20 g | € 2.323 | 0,05 | **€ 11,62** |
+| 1.000 | 2 kg | € 232.300 | 5,00 | **€ 1.161,50** |
+| 100.000 | 200 kg | € 23.230.000 | 500,00 | **€ 116.150** |
+| 10.000.000 | 20 t | € 2.323.000.000 | 50.000,00 | **€ 11.615.000** |
 
 Il prelievo è una percentuale fissa: scala perfettamente lineare (×100 a ogni step).
 
@@ -81,18 +92,19 @@ Gas misurato in simulazione: **35.147/holder al ciclo 1** (slot mai scritti) e
 Anche il gas scala linearmente (×100 a step); il costo di UNA transazione batch da
 300 holder è ~€ 0,19.
 
-### Tabella C — Rapporto costo/ricavo (scenario: balance medio 100 IGT/holder)
+### Tabella C — Scenario di business: detenzione media € 2.000/utente (8,61 IGT)
 
-| Holder | IGT custoditi | Prelievo EUR | Costo gas EUR (c.1) | **Incidenza gas** |
-|---:|---:|---:|---:|---:|
-| 10 | 1.000 | € 580,75 | € 0,01 | 0,0012% |
-| 1.000 | 100.000 | € 58.075 | € 0,65 | 0,0011% |
-| 100.000 | 10.000.000 | € 5.807.500 | € 64,69 | 0,0011% |
-| 10.000.000 | 1.000.000.000 | € 580.750.000 | € 6.469 | **0,0011%** |
+| Utenti | IGT custoditi | Valore custodito | **Prelievo EUR** | Gas EUR (c.1) | **Incidenza gas** |
+|---:|---:|---:|---:|---:|---:|
+| 10 | 86 | € 20.000 | **€ 100** | € 0,01 | 0,0071% |
+| 1.000 | 8.610 | € 2.000.000 | **€ 10.000** | € 0,65 | 0,0065% |
+| 100.000 | 860.956 | € 200.000.000 | **€ 1.000.000** | € 64,69 | 0,0065% |
+| 10.000.000 | 86.095.566 | € 20.000.000.000 | **€ 100.000.000** | € 6.469 | **0,0065%** |
 
-**Conclusione economica**: il costo on-chain dell'incasso è irrilevante — circa
-**1 centesimo ogni 1.000 € prelevati**, costante a ogni scala. Il vero costo a
-grande scala non è il gas ma la **finestra di pausa** (vedi §5.3).
+**Prelievo medio: € 10,00 per utente per ciclo** (0,5% di € 2.000). Il costo
+on-chain dell'incasso è irrilevante — ~**65 centesimi ogni 10.000 € prelevati**,
+costante a ogni scala. Il vero costo a grande scala non è il gas ma la
+**finestra di pausa** (vedi §5).
 
 ## 4. Problemi incontrati e come sono stati risolti
 
@@ -136,7 +148,7 @@ dai cicli successivi la slot è già inizializzata (≈ 5k). Misurato: 35.147 vs
 
 | # | Tema | Azione |
 |---|---|---|
-| 1 | **Peg oro non formalizzato** — 1 IGT = 1 g è una MIA assunzione: nessun documento del progetto la definisce | Definire il peg in un documento ufficiale (e valutare se scolpirlo nei metadata/NatSpec del contratto) |
+| 1 | ~~Peg oro non formalizzato~~ **DEFINITO: 1 IGT = 2 g** (specifica utente 2026-07-07) | ✅ Formalizzato in `PEG_ORO.md`; da scolpire nei NatSpec al prossimo redeploy |
 | 2 | ~~EIP-7825 su Polygon PoS~~ **CONFERMATO** (fork Madhugiri, cap 2²⁵ = 33,55M gas; block limit 160M) | ✅ Chiuso — vedi §4.2; batch 300 valido ovunque, su mainnet estendibile fino a ~700 |
 | 3 | **Finestra di pausa a grande scala** — 10M holder = 33.334 tx; in sequenza (1 tx/blocco da 2s) ≈ 18 ore di pausa | Per >100k holder: inviare più tx per blocco (nonce sequenziali), valutare più operatori FEE_MANAGER in parallelo; da collaudare su Amoy |
 | 4 | **Indexer holder** — la simulazione usa holder noti; in produzione serve l'enumerazione da eventi Transfer con verifica di completezza (MONITORING.md) | Costruire/collaudare l'indexer prima del primo ciclo reale |

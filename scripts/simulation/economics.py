@@ -15,7 +15,8 @@ import sys
 GOLD_EUR_G = float(os.environ.get("GOLD_EUR_G", "116.15"))  # livepriceofgold.com; xcheck gold-api.com+ECB
 POL_EUR = float(os.environ.get("POL_EUR", "0.0655"))        # CoinGecko + Kraken POL/EUR
 GAS_GWEI = float(os.environ.get("GAS_GWEI", "280"))         # polygonscan gastracker (base 246 + prio 33)
-PEG_G_PER_IGT = float(os.environ.get("PEG_G_PER_IGT", "1")) # ASSUNZIONE: 1 IGT = 1 g oro fino
+PEG_G_PER_IGT = float(os.environ.get("PEG_G_PER_IGT", "2")) # SPECIFICA UTENTE (2026-07-07): 1 IGT = 2 g oro fino
+AVG_HOLDING_EUR = float(os.environ.get("AVG_HOLDING_EUR", "2000"))  # detenzione media prevista per utente
 CUSTODY_BPS = 50
 TX_GAS_CAP = 16_777_216  # EIP-7825 cap locale-Hardhat (Ethereum 2^24); su Polygon mainnet = 33_554_432 (2^25, fork Madhugiri)
 
@@ -67,16 +68,19 @@ def main() -> None:
         gas_tot = n * g1 + txs * overhead
         print(f"| {num(n)} | {num(txs)} | {num(gas_tot)} | {num(pol1, 2)} | {eur(eur1)} | {eur(eur2)} |")
 
-    # ── Tabella C: scenario combinato (balance medio 100 IGT/holder) ────────
-    AVG = 100
-    print(f"\nTABELLA C — Scenario combinato: N holder con balance medio {AVG} IGT")
-    print("| Holder | IGT custoditi | Prelievo EUR | Costo gas EUR (c.1) | Incidenza gas sul prelievo |")
-    print("|---:|---:|---:|---:|---:|")
+    # ── Tabella C: scenario di business (detenzione media in EUR per utente) ──
+    igt_price = PEG_G_PER_IGT * GOLD_EUR_G
+    avg_igt = AVG_HOLDING_EUR / igt_price
+    print(f"\nTABELLA C — Scenario di business: detenzione media {eur(AVG_HOLDING_EUR)}/utente (= {num(avg_igt, 2)} IGT a {eur(igt_price)}/IGT)")
+    print("| Utenti | IGT custoditi | Valore custodito | Prelievo EUR | Costo gas EUR (c.1) | Incidenza gas |")
+    print("|---:|---:|---:|---:|---:|---:|")
     for n in SCALES:
-        tot = n * AVG
-        take_eur = tot * CUSTODY_BPS / 10000 * PEG_G_PER_IGT * GOLD_EUR_G
+        tot_igt = n * avg_igt
+        value = n * AVG_HOLDING_EUR
+        take_eur = value * CUSTODY_BPS / 10000
         _, geur, _ = gas_cost(n, g1)
-        print(f"| {num(n)} | {num(tot)} | {eur(take_eur)} | {eur(geur)} | {geur / take_eur * 100:.4f}% |")
+        print(f"| {num(n)} | {num(tot_igt)} | {eur(value)} | {eur(take_eur)} | {eur(geur)} | {geur / take_eur * 100:.4f}% |")
+    print(f"Prelievo medio per utente: {eur(AVG_HOLDING_EUR * CUSTODY_BPS / 10000)}/ciclo")
 
     # ── Vincoli operativi ────────────────────────────────────────────────────
     max_batch = (TX_GAS_CAP * 8 // 10 - overhead) // g1
