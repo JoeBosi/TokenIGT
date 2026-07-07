@@ -17,7 +17,7 @@
 ERC-7201 conformi e una nuova `initialize` a 9 parametri — incompatibile con le
 istanze v1.x.
 
-### Token Details (Amoy, v2.0.0)
+### Token Details (Amoy, v2.1.0)
 
 - **Name / Symbol / Decimals:** IGE Token / IGT / 18
 - **Initial Supply:** 10.000 IGT
@@ -41,7 +41,7 @@ istanze v1.x.
 | FEE_MANAGER_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` |
 | RECOVERER_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` |
 
-Smoke test on-chain post-deploy (2026-07-06): name/symbol/version, supply, fee config,
+Smoke test on-chain post-deploy (2026-07-07): name/symbol/version, supply, fee config,
 cycle, `previewNet`/`previewGross`/`maxNetTransferable`, ruoli — tutto ✅.
 
 ### Deployment storici (DEPRECATI — API v1.x incompatibile)
