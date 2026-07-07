@@ -32,5 +32,6 @@
 - [ ] Governance: DEFAULT_ADMIN + UPGRADER su multisig (Safe); valutare
       `AccessControlDefaultAdminRulesUpgradeable` e timelock (AUDIT §raccomandazioni)
 - [ ] Audit di sicurezza esterno professionale
-- [ ] Badges CI/coverage nel README + snippet di integrazione
-- [ ] Indexer holder per lo sweep (enumerazione da eventi Transfer) in produzione
+- [x] Badges CI/coverage nel README + snippet di integrazione
+- [x] Indexer holder per lo sweep — costruito e collaudato in locale
+      (`scripts/indexer/`); resta il collaudo in produzione/Amoy

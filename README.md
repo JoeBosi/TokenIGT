@@ -1,5 +1,12 @@
 # TokenIGT — Advanced ERC-20 Token (v2.1.0)
 
+[![CI](https://github.com/JoeBosi/TokenIGT/actions/workflows/test.yml/badge.svg)](https://github.com/JoeBosi/TokenIGT/actions/workflows/test.yml)
+![Tests](https://img.shields.io/badge/tests-447%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-Token.sol%20100%25-brightgreen)
+![Solidity](https://img.shields.io/badge/solidity-0.8.28-blue)
+
+**Sottostante: 1 IGT = 2 grammi d'oro fino** (vedi [PEG_ORO.md](./PEG_ORO.md)).
+
 Token ERC-20 avanzato con pattern UUPS upgradeable: ERC-20, EIP-2612 (Permit),
 EIP-3009 (Transfer With Authorization), ERC-1363 (Payable Token), fee di scambio
 a doppia semantica, **fee di custodia on-chain a cicli**, freeze, blocklist,
@@ -75,6 +82,34 @@ pnpm hardhat run scripts/deploy/verify.ts --network amoy
 
 > Il deploy su Polygon mainnet è previsto SOLO a fine fase di sviluppo/testing,
 > dopo audit esterno e migrazione della governance su multisig.
+
+## Integrazione (ethers v6)
+
+```typescript
+const token = new ethers.Contract(PROXY, ABI, providerOrSigner);
+
+// ── Trasferimento standard: fee DEDOTTA (il destinatario riceve il netto) ──
+const gross = ethers.parseEther("100");
+const net = await token.previewNet(gross);         // quanto arriverà
+await token.transfer(to, gross);                    // to riceve `net`
+
+// per consegnare un netto esatto:
+const needed = await token.previewGross(ethers.parseEther("100"));
+await token.transfer(to, needed);                   // to riceve ≥ 100
+
+// ── ERC-1363 / EIP-3009: semantica LORDA (to riceve ESATTAMENTE value) ──
+await token.transferAndCall(to, value);             // mittente paga value + fee
+// transferFromAndCall: l'allowance deve coprire value + fee (il "lordo")
+const fee = value - (await token.previewNet(value));
+await token.approve(spender, value + fee);
+
+// ── Quanto posso inviare al massimo (percorso lordo)? ──
+const max = await token.maxNetTransferable(sender);
+```
+
+Nota custodia: lo 0,50%/ciclo viene prelevato dall'emittente con la procedura in
+[RUNBOOK_SWEEP.md](./RUNBOOK_SWEEP.md) (pausa → snapshot → sweep → verifica → unpause);
+numeri e simulazioni in [SIMULAZIONE_CUSTODY_FEE.md](./SIMULAZIONE_CUSTODY_FEE.md).
 
 ## License
 
