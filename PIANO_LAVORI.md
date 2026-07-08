@@ -44,11 +44,27 @@ collaudo di SCALA (batch grandi ~300-700, throughput multi-tx/blocco, tempi di
 pausa reali su molti holder) con le specifiche aggiuntive dell'utente.
 
 ### C. Chiusura pre-mainnet (bloccanti per il go-live)
+- **Verifica ON-CHAIN di ENTRAMBI i contratti** (richiesta utente): implementation
+  E proxy verificati su Polygonscan. Oggi verifichiamo solo l'implementation; il
+  proxy (`ERC1967Proxy`) va verificato e **marcato come proxy** sull'explorer, così
+  mostra "Read/Write as Proxy" con l'ABI dell'implementation. Da fare a ogni deploy
+  (Amoy e mainnet). L'ABI PUBBLICA è corretta e desiderata (vedi nota sotto), NON un
+  rischio di sicurezza.
 - **Governance su multisig** (Safe) per DEFAULT_ADMIN + UPGRADER; valutare
   `AccessControlDefaultAdminRulesUpgradeable` + timelock.
 - **Audit di sicurezza esterno** professionale.
 - **Mutation testing** (skill `mutation-testing` / `mewt`) sull'intera suite.
 - Peg nei NatSpec del contratto (al prossimo redeploy).
+
+> **Nota sicurezza — ABI/codice pubblici sono la scelta GIUSTA.** La sicurezza di
+> uno smart contract NON dipende dal nascondere ABI o sorgente ("security through
+> obscurity" non funziona on-chain): il **bytecode è comunque pubblico** e da esso
+> si ricavano selettori e ABI con strumenti standard; ogni transazione espone i
+> selettori delle funzioni chiamate. La sicurezza viene da **access control +
+> logica auditata**, non dall'occultamento. Verificare crea **fiducia** e abilita
+> le integrazioni (wallet, DEX, explorer, indexer): per un token con sottostante
+> reale, NON verificare è un segnale di sospetto e blocca l'adozione. Gli unici
+> segreti restano **off-chain**: chiavi private e `.env`.
 
 ### D. Merge PR #1 in master (dopo la review dell'utente).
 
