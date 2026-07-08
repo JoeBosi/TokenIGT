@@ -2,16 +2,16 @@
 
 ## Current Deployments
 
-### Amoy Testnet (Active) — v2.1.0
+### Amoy Testnet (Active) — v2.3.0 (deploy di TEST)
 
 | Contract | Address |
 |----------|---------|
-| **Token Proxy (UUPS)** | `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` |
-| **Implementation v2.1.0** | `0xcbc86423AaE09Aa2f67A479acD2aa779e81b78F4` (verificata ✅) |
+| **Token Proxy (UUPS)** | `0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC` |
+| **Implementation v2.3.0** | `0xf977Bf61Ba628e05771470c66878999a697d241F` (verificata ✅) |
 
 **Explorer:**
-- Proxy: https://amoy.polygonscan.com/address/0x2b307FabB36e54Fbd0257cE597D7bE277df84922
-- Implementation (source verified): https://amoy.polygonscan.com/address/0xcbc86423AaE09Aa2f67A479acD2aa779e81b78F4#code
+- Proxy: https://amoy.polygonscan.com/address/0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC
+- Implementation (source verified): https://amoy.polygonscan.com/address/0xf977Bf61Ba628e05771470c66878999a697d241F#code
 
 **Deploy fresco** (2026-07-07, non upgrade — rename recoverNative): la v2.x usa nuovi namespace storage
 ERC-7201 conformi e una nuova `initialize` a 9 parametri — incompatibile con le
@@ -41,13 +41,15 @@ istanze v1.x.
 | FEE_MANAGER_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` |
 | RECOVERER_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` |
 
-Smoke test on-chain post-deploy (2026-07-07): name/symbol/version, supply, fee config,
+Test on-chain v2.3.0 (2026-07-08): integrazione (fee/freeze/block/pause/recovery) + caveaux (sweep) tutti verdi — vedi AMOY_TEST_REPORT.md. Smoke test: name/symbol/version, supply, fee config,
 cycle, `previewNet`/`previewGross`/`maxNetTransferable`, ruoli — tutto ✅.
 
-### Deployment storici (DEPRECATI — API v1.x incompatibile)
+### Deployment storici (DEPRECATI)
 
 | Versione | Proxy |
 |---|---|
+| v2.1.0 | `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` |
+| v2.0.0 (recoverETH pre-rename) | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
 | v2.0.0 (recoverETH pre-rename) | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
 | v1.6.3-security-fixes | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` |
 | v1.6.2-cleanup-final | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` |

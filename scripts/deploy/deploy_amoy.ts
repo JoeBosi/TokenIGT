@@ -46,9 +46,10 @@ async function main() {
   const tokenAddress = await token.getAddress();
   const implementationAddress = await upgrades.erc1967.getImplementationAddress(tokenAddress);
 
+  const deployedVersion = await token.version();
   console.log("Proxy:", tokenAddress);
   console.log("Implementation:", implementationAddress);
-  console.log("Version:", await token.version());
+  console.log("Version:", deployedVersion);
 
   // Save to deployments/amoy
   const deploymentsDir = path.join(__dirname, "../../deployments/amoy");
@@ -68,7 +69,7 @@ async function main() {
   const deployInfo = {
     network: "amoy",
     chainId: 80002,
-    version: "2.0.0",
+    version: deployedVersion,
     deployer: deployer.address,
     timestamp: new Date().toISOString(),
     contracts: {

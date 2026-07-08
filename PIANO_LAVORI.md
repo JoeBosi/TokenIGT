@@ -27,7 +27,7 @@
 - **PR #1 aperta** verso master: https://github.com/JoeBosi/TokenIGT/pull/1
 
 ### ⏸️ In pausa / rimandato per scelta
-- **Prova generale sweep su Amoy**: rimandata, arriverà con specifiche aggiuntive.
+- **Prova di SCALA sweep su Amoy** (batch grandi, throughput): rimandata alle specifiche aggiuntive. La prova funzionale base è FATTA (AMOY_TEST_REPORT.md).
 - **Backup su Drive**: script pronto, configurazione rimandata.
 
 ---
@@ -37,10 +37,11 @@
 ### A. Sistema di monitoraggio on-chain ⭐ (richiesta esplicita utente)
 Alert se "succede qualcosa di strano" dal contratto. **Specifiche dettagliate → §3.**
 
-### B. Prova generale sweep su Amoy
-Seed di holder reali + sweep multi-batch sulla testnet; collaudo throughput
-(più tx/blocco, batch fino a ~700 sul cap Polygon), tempi di pausa reali.
-Attende le specifiche aggiuntive dell'utente.
+### B. Prova generale sweep su Amoy — ✅ PRIMA PROVA FATTA (2026-07-08)
+Deploy fresco v2.3.0 + integrazione on-chain + caveaux (sweep 6 holder,
+riconciliazione al wei) tutti verdi — vedi `AMOY_TEST_REPORT.md`. Resta il
+collaudo di SCALA (batch grandi ~300-700, throughput multi-tx/blocco, tempi di
+pausa reali su molti holder) con le specifiche aggiuntive dell'utente.
 
 ### C. Chiusura pre-mainnet (bloccanti per il go-live)
 - **Governance su multisig** (Safe) per DEFAULT_ADMIN + UPGRADER; valutare
