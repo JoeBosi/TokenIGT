@@ -44,12 +44,13 @@ collaudo di SCALA (batch grandi ~300-700, throughput multi-tx/blocco, tempi di
 pausa reali su molti holder) con le specifiche aggiuntive dell'utente.
 
 ### C. Chiusura pre-mainnet (bloccanti per il go-live)
-- **Verifica ON-CHAIN di ENTRAMBI i contratti** (richiesta utente): implementation
-  E proxy verificati su Polygonscan. Oggi verifichiamo solo l'implementation; il
-  proxy (`ERC1967Proxy`) va verificato e **marcato come proxy** sull'explorer, così
-  mostra "Read/Write as Proxy" con l'ABI dell'implementation. Da fare a ogni deploy
-  (Amoy e mainnet). L'ABI PUBBLICA è corretta e desiderata (vedi nota sotto), NON un
-  rischio di sicurezza.
+- **ABI di ENTRAMBI leggibili ON-CHAIN** (richiesta utente): sull'explorer devono
+  essere leggibili sia l'**ABI del proxy** sia l'**ABI dell'implementation**.
+  Concretamente: (1) verificare l'`implementation` (source + ABI pubblici);
+  (2) verificare il `proxy` (`ERC1967Proxy`) e **marcarlo come proxy**, così
+  l'indirizzo del proxy espone anche l'ABI dell'implementation ("Read/Write as
+  Proxy"). Da fare a ogni deploy (Amoy e mainnet). L'ABI PUBBLICA è corretta e
+  desiderata (vedi nota sotto), NON un rischio di sicurezza.
 - **Governance su multisig** (Safe) per DEFAULT_ADMIN + UPGRADER; valutare
   `AccessControlDefaultAdminRulesUpgradeable` + timelock.
 - **Audit di sicurezza esterno** professionale.
@@ -67,6 +68,33 @@ pausa reali su molti holder) con le specifiche aggiuntive dell'utente.
 > segreti restano **off-chain**: chiavi private e `.env`.
 
 ### D. Merge PR #1 in master (dopo la review dell'utente).
+
+### E. Altri punti da valutare (miei suggerimenti, 2026-07-08)
+
+**Tecnici (posso implementarli io):**
+1. **Slither in CI** — scan di sicurezza automatico a ogni push (oggi Slither gira
+   solo in locale). Blocca regressioni prima del merge.
+2. **Gas snapshot regression** — `forge snapshot --check` in CI per accorgersi se
+   un upgrade fa lievitare il gas (specie dello sweep).
+3. **Redeploy PULITO pre-mainnet** — il deploy Amoy attuale è "sporco" dai test
+   (collector/treasury cambiati, ruoli al deployer, ciclo avanzato). Prima del
+   go-live serve un deploy da `initialize` con i valori DEFINITIVI, ruoli
+   distribuiti agli indirizzi reali, e `renounceRole` dei ruoli extra del deployer.
+4. **Runbook di incident response** — cosa fare in emergenza: procedura di `pause`
+   immediata, compromissione di una chiave/ruolo (`revokeRole` + rotazione),
+   collector/treasury compromessi (`setFeeCollector`/`setCustodyTreasury`). Oggi
+   c'è solo il runbook dello sweep.
+5. **Bug bounty** (anche piccolo) pre/post-mainnet, in coda all'audit esterno.
+
+**Di dominio (decisioni tue / esperti):**
+6. **Proof of reserves dell'oro** — per un token con sottostante fisico, la
+   credibilità dipende dal dimostrare che l'oro nel caveau esiste e copre il supply:
+   attestazioni periodiche del custode, audit del caveau, eventualmente un oracolo/
+   attestazione on-chain. È il punto più importante lato fiducia, oggi non nel piano.
+7. **Aspetti regolatori UE (MiCA)** — un token ancorato a un asset reale (oro) in
+   Europa ricade verosimilmente tra gli "asset-referenced token": va verificato con
+   un legale prima del lancio (autorizzazioni, white paper regolamentare, riserve).
+8. **Metadati post-lancio** — logo, token list, submission a explorer/aggregatori.
 
 ---
 
