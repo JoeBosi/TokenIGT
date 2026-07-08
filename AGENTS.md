@@ -139,7 +139,9 @@ Trappola nota nei test Foundry: leggere i ruoli (`token.X_ROLE()`) PRIMA di
 
 - Pattern UUPS: `upgradeToAndCall` gated da `UPGRADER_ROLE` via `_authorizeUpgrade`
 - `TokenV2`/`TokenV3` in `contracts/mocks/` sono SOLO fixture di test
-  (version `2.1.0-test`/`2.2.0-test`)
+  (version `2.2.0-test`/`2.3.0-test`); usano storage ERC-7201 namespaced
+  (namespace `advanced.token.v2test/v3test.storage`) — dimostrano il pattern
+  corretto per un V2/V3 REALE: mai variabili plain, sempre un nuovo namespace
 - Storage: SOLO append nei namespace ERC-7201 esistenti o nuovi namespace; mai
   riordinare; validare sempre con OZ Upgrades
 - Prima di ogni upgrade reale: `differential-review` (skill) sul diff dell'implementation

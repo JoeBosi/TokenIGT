@@ -16,6 +16,11 @@ All notable changes to the IGE Token project.
 
 ### Changed
 - `version()` → `"2.3.0"`. Runtime bytecode 19.118 B (margine EIP-170 +5.458 B).
+- **Storage audit (`AUDIT_STORAGE.md`)** + risoluzione osservazioni: i mock
+  `TokenV2`/`TokenV3` riscritti con storage ERC-7201 namespaced (prima usavano
+  variabili plain sequenziali — sicuro ma incoerente col pattern); rimossi da
+  `scripts/upgrade/` i 5 script one-off v1 (già in `scripts/archive/`).
+  Nessun impatto sul bytecode di `Token` (i mock non sono deployati).
 
 > Nota: deploy Amoy attivo ancora v2.1.0; questi eventi saranno on-chain al redeploy.
 

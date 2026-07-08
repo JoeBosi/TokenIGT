@@ -9,9 +9,10 @@
 
 **Progettazione solida e corretta. Nessun bug di storage, nessun rischio di
 collisione.** Il contratto adotta in modo coerente il pattern ERC-7201 (namespaced
-storage), che è lo stato dell'arte per gli upgradeable. Restano **limiti intrinseci
-del pattern** (che vanno conosciuti e rispettati) e **2 osservazioni di consistenza**
-di severità informativa. Dettaglio sotto.
+storage), che è lo stato dell'arte per gli upgradeable. Le **2 osservazioni di
+consistenza** emerse (mock non-namespaced, script legacy) sono state **risolte il
+2026-07-07** (§3). Restano solo i **limiti intrinseci del pattern** (§4), da
+conoscere e rispettare. Dettaglio sotto.
 
 ---
 
@@ -56,28 +57,24 @@ di severità informativa. Dettaglio sotto.
 5. **`FeeManagerRole`** dichiara `FEE_MANAGER_ROLE` una sola volta (base stateless
    condivisa) evitando il clash di identificatori tra i due moduli fee.
 
-## 3. Osservazioni (severità informativa)
+## 3. Osservazioni — RISOLTE (2026-07-07)
 
-### O1 — I mock V2/V3 usano storage SEQUENZIALE, non namespaced
-`contracts/mocks/TokenV2.sol` e `TokenV3.sol` aggiungono lo stato come variabili
-plain (`uint256 public newVariable` → slot 0, `string public newString` → slot 1,
-`uint256 public anotherVariable` → slot 2).
-- **È SICURO oggi**, proprio perché il Token base non usa slot sequenziali (0,1,2…
-  sono liberi) — infatti i test di upgrade passano e lo stato è preservato.
-- **MA** è incoerente con la regola di progetto (AGENTS.md §10: "nuovo storage solo
-  namespaced") e, se preso a modello per un V2 reale, reintrodurrebbe la disciplina
-  fragile degli slot sequenziali (append-only rigoroso, ordine di dichiarazione
-  vincolante) che il namespacing serve proprio a eliminare.
-- **Raccomandazione**: per un V2 REALE aggiungere lo stato con un **nuovo namespace**
-  ERC-7201 (es. `advanced.token.v2.storage`), non con variabili plain. Valutare di
-  aggiornare i mock perché dimostrino il pattern corretto.
+### O1 — I mock V2/V3 ora usano storage NAMESPACED ✅
+`TokenV2.sol` e `TokenV3.sol` sono stati riscritti per usare il pattern ERC-7201
+come i moduli di produzione: namespace dedicati `advanced.token.v2test.storage`
+(slot `0x4e5b…1f00`) e `advanced.token.v3test.storage` (slot `0xb721…ba00`),
+con struct annotato `@custom:storage-location` e accesso via assembly. Niente più
+variabili plain / slot sequenziali. I mock ora **dimostrano il pattern corretto**
+per un V2/V3 reale: nessuna dipendenza dall'ordine degli slot, nessun rischio di
+collisione tra V2 e V3. I 15 test di upgrade (forward/compatibility/comprehensive)
+restano verdi → lo stato è preservato attraverso gli upgrade con storage namespaced.
 
-### O2 — Script di upgrade legacy nella cartella attiva
-In `scripts/upgrade/` restano numerosi script one-off dell'era v1
-(`upgrade_amoy_fee_fix`, `upgrade_amoy_fix`, `upgrade_amoy_comprehensive_fix`,
-`upgrade_amoy_v2`, …) che riferiscono `TokenV2`. Non è un problema di storage, ma
-possono confondere: alcuni farebbero un `upgradeProxy` verso il mock V2. AGENTS.md
-prevede `scripts/archive/` per i one-off. **Raccomandazione**: spostarli in archive.
+### O2 — Script di upgrade legacy rimossi ✅
+I 5 script one-off dell'era v1 (`upgrade_amoy_fee_fix`, `upgrade_amoy_fix`,
+`upgrade_amoy_comprehensive_fix`, `upgrade_amoy_fee_bug_fix`, `upgrade_amoy_v2`)
+erano già presenti in `scripts/archive/`: rimossi i duplicati da `scripts/upgrade/`,
+che ora contiene solo i tre script canonici (`upgrade_local`, `upgrade_amoy`,
+`upgrade_polygon`).
 
 ## 4. Limiti INTRINSECI del pattern (da conoscere e rispettare)
 
@@ -114,7 +111,6 @@ Non sono difetti del contratto, ma vincoli operativi degli upgradeable namespace
 Lo storage è **progettato correttamente e in modo difensivo**: namespaced ovunque,
 nessuna variabile plain nel contratto principale, nessuna collisione possibile,
 packing verificato, validazione OZ + guardiano on-chain. **Nessun problema
-bloccante.** Gli unici interventi consigliati sono di **consistenza/manutenzione**
-(O1: pattern namespaced anche nei mock d'upgrade; O2: archiviare gli script legacy)
-e la **disciplina di upgrade** (§4) va documentata nel runbook di upgrade quando
-si preparerà un V2 reale.
+bloccante.** Le due osservazioni di consistenza (O1 mock namespaced, O2 script
+legacy) sono state **risolte** (§3). Resta da rispettare la **disciplina di upgrade**
+(§4), da riportare nel runbook di upgrade quando si preparerà un V2 reale.
