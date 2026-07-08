@@ -71,30 +71,45 @@ pausa reali su molti holder) con le specifiche aggiuntive dell'utente.
 
 ### E. Altri punti da valutare (miei suggerimenti, 2026-07-08)
 
-**Tecnici (posso implementarli io):**
-1. **Slither in CI** — scan di sicurezza automatico a ogni push (oggi Slither gira
-   solo in locale). Blocca regressioni prima del merge.
-2. **Gas snapshot regression** — `forge snapshot --check` in CI per accorgersi se
-   un upgrade fa lievitare il gas (specie dello sweep).
-3. **Redeploy PULITO pre-mainnet** — il deploy Amoy attuale è "sporco" dai test
-   (collector/treasury cambiati, ruoli al deployer, ciclo avanzato). Prima del
-   go-live serve un deploy da `initialize` con i valori DEFINITIVI, ruoli
-   distribuiti agli indirizzi reali, e `renounceRole` dei ruoli extra del deployer.
-4. **Runbook di incident response** — cosa fare in emergenza: procedura di `pause`
-   immediata, compromissione di una chiave/ruolo (`revokeRole` + rotazione),
-   collector/treasury compromessi (`setFeeCollector`/`setCustodyTreasury`). Oggi
-   c'è solo il runbook dello sweep.
-5. **Bug bounty** (anche piccolo) pre/post-mainnet, in coda all'audit esterno.
+> Nota: gli aspetti regolatori (MiCA/legali) sono **esclusi** — non competono al
+> livello di programmazione; restano a carico dell'emittente/consulenti.
 
-**Di dominio (decisioni tue / esperti):**
-6. **Proof of reserves dell'oro** — per un token con sottostante fisico, la
-   credibilità dipende dal dimostrare che l'oro nel caveau esiste e copre il supply:
-   attestazioni periodiche del custode, audit del caveau, eventualmente un oracolo/
-   attestazione on-chain. È il punto più importante lato fiducia, oggi non nel piano.
-7. **Aspetti regolatori UE (MiCA)** — un token ancorato a un asset reale (oro) in
-   Europa ricade verosimilmente tra gli "asset-referenced token": va verificato con
-   un legale prima del lancio (autorizzazioni, white paper regolamentare, riserve).
-8. **Metadati post-lancio** — logo, token list, submission a explorer/aggregatori.
+**E1 — Slither in CI** (tecnico, posso farlo io)
+Scan di sicurezza automatico a ogni push su GitHub (oggi Slither gira solo in
+locale). Blocca l'introduzione di vulnerabilità note prima del merge.
+
+**E2 — Gas snapshot regression** (tecnico, posso farlo io)
+`forge snapshot --check` in CI: fallisce se un upgrade fa lievitare il gas (specie
+dello sweep). Baseline versionata nel repo.
+
+**E3 — Redeploy PULITO pre-mainnet** (tecnico, posso farlo io) — da splittare:
+- E3a: deploy da `initialize` con i valori DEFINITIVI (fee, collector, treasury, admin)
+- E3b: distribuzione dei ruoli agli INDIRIZZI REALI (non il deployer)
+- E3c: `renounceRole` dei ruoli extra del deployer (resta solo il dovuto)
+- E3d: verifica on-chain di ENTRAMBI (proxy marcato come proxy + implementation)
+- E3e: smoke test on-chain + salvataggio indirizzi in `deployments/` e doc
+
+**E4 — Runbook di incident response** (tecnico, posso farlo io) — da splittare:
+- E4a: emergenza generica → `pause()` immediata (chi, come, con quale chiave)
+- E4b: chiave/ruolo compromesso → `revokeRole` + rotazione su nuovo indirizzo
+- E4c: collector/treasury compromessi → `setFeeCollector`/`setCustodyTreasury`
+- E4d: upgrade d'emergenza (hotfix) → procedura UUPS con UPGRADER/multisig
+- E4e: piano di comunicazione (utenti/exchange) durante l'incidente
+
+**E5 — Bug bounty** (processo) — anche piccolo, pre/post-mainnet, in coda all'audit
+esterno: ricompensa a chi trova e segnala vulnerabilità invece di sfruttarle.
+
+**E6 — Proof of reserves dell'oro** (dominio + possibile componente tecnica)
+Dimostrare che l'oro nel caveau esiste e copre il supply. Da splittare:
+- E6a: attestazioni periodiche del custode / audit del caveau (processo)
+- E6b: (opzionale) oracolo o attestazione on-chain delle riserve (tecnico)
+- È il punto più importante lato FIDUCIA per un token con sottostante fisico.
+
+**E7 — Metadati post-lancio** (branding/off-chain, non tocca il contratto) — da splittare:
+- E7a: logo + info ufficiali su Polygonscan (indirizzo token)
+- E7b: inserimento nelle token list standard (wallet mostrano nome+logo in automatico)
+- E7c: submission agli aggregatori (CoinGecko, CoinMarketCap)
+- E7d: verifica resa nei wallet (MetaMask/Rabby) via token list
 
 ---
 
