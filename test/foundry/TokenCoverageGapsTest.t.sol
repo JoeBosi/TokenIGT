@@ -420,4 +420,27 @@ contract TokenCoverageGapsTest is Test {
         }
         assertTrue(transferFee && feeCollector && custodyFee && custodyTreasury, "config events missing at init");
     }
+
+    /// initialSupply==0 with a NON-zero holder must skip _mint entirely: no
+    /// zero-value Transfer(address(0),holder,0) at init. Kills `> 0` -> `>= 0`.
+    function test_MUT_init_zeroSupplyNonZeroHolder_noMintEvent() public {
+        Token impl = new Token();
+        bytes memory initData = abi.encodeWithSelector(
+            Token.initialize.selector,
+            "Test Token",
+            "TEST",
+            uint256(0), // initialSupply == 0
+            user, // holder != address(0)
+            uint256(0),
+            collector,
+            uint256(0),
+            treasury,
+            admin,
+            uint48(3 days)
+        );
+        vm.recordLogs();
+        new UUPSProxy(address(impl), initData);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(_countTransferLogs(logs), 0, "no Transfer event when supply==0");
+    }
 }

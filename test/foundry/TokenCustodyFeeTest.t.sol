@@ -814,4 +814,30 @@ contract TokenCustodyFeeTest is Test {
         emit log_named_uint("gas medio per holder", used / n);
         assertLt(used / n, 100_000, "gas per holder oltre il budget del runbook");
     }
+
+    /// @dev un holder gia' spazzato nel ciclo corrente deve essere SALTATO (continue),
+    /// non deve interrompere il batch (break): gli holder successivi vanno comunque spazzati.
+    function test_sweep_alreadySweptHolderDoesNotStopBatch() public {
+        token.mint(holderA, AMOUNT);
+        token.mint(holderB, AMOUNT);
+
+        // Prima passata: solo holderA viene spazzato in questo ciclo
+        token.sweepCustodyFee(_arr(holderA));
+        assertEq(token.lastSweptCycle(holderA), 1);
+        assertEq(token.lastSweptCycle(holderB), 0);
+
+        uint256 expectedFeeB = (AMOUNT * CUSTODY_FEE_BPS) / 10000;
+        uint256 treasuryBefore = token.balanceOf(custodyTreasuryAddr);
+
+        // Batch con holderA (gia' spazzato) PRIMA di holderB (non spazzato):
+        // con `continue` holderA e' saltato e holderB viene spazzato;
+        // con `break` il loop si ferma su holderA e holderB resta intatto.
+        token.sweepCustodyFee(_arr(holderA, holderB));
+
+        assertEq(
+            token.balanceOf(holderB), AMOUNT - expectedFeeB, "holderB deve essere spazzato dopo holderA gia' spazzato"
+        );
+        assertEq(token.balanceOf(custodyTreasuryAddr), treasuryBefore + expectedFeeB);
+        assertEq(token.lastSweptCycle(holderB), 1);
+    }
 }

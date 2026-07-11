@@ -20,15 +20,18 @@ All notable changes to the IGE Token project.
   `scripts/roles/accept_governance.ts` per la FASE 2 dell'handover.
 - Nuovi test Foundry dedicati (`TokenFeeRolesTest`, `TokenContractURIsTest`,
   `TokenAdminRulesTest`) + Hardhat equivalenti (`token.feeroles`,
-  `token.adminrules`, `token.contracturis`) → **534 test totali** (315 Foundry +
+  `token.adminrules`, `token.contracturis`) → **546 test totali** (327 Foundry +
   219 Hardhat).
 - **Prova di scala dello sweep su Amoy** (`scripts/amoy_test/onchain_scale.ts`):
   100 holder reali, batch fino a 100 in una sola tx (2,69M gas), ammortamento
   gas confermato (55k→27k/holder), riconciliazione al wei (AMOY_TEST_REPORT.md §4).
-- **Mutation testing** con mewt 4.0.0 (Trail of Bits, `MUTATION_TESTING.md`):
-  run parziale che ha esposto 2 buchi della suite Foundry (implementation non
-  inizializzabile via `_disableInitializers`, assert `name()`/`symbol()`), chiusi
-  con 2 nuovi test; 1 mutante equivalente documentato.
+- **Mutation testing COMPLETO** con mewt 4.0.0 (Trail of Bits, `MUTATION_TESTING.md`):
+  917 mutanti, 855 catturati / 56 sopravvissuti / 6 skipped. I 56 sopravvissuti
+  analizzati (workflow a 6 agenti, verifica empirica): 44 mutanti equivalenti
+  documentati + **12 buchi reali della suite chiusi** con 12 nuovi test Foundry
+  (validazione firme EIP-3009, boundary temporali, selettori ERC-1363 bassi,
+  batch sweep, fee leg con collector > mittente). Mutation score 100% sui
+  mutanti non-equivalenti; nessun bug di contratto.
 
 ### Changed
 - **Split di `FEE_MANAGER_ROLE`** (revisione della decisione D2, PIANO_LAVORI

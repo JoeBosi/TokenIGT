@@ -570,4 +570,77 @@ contract TokenEIP3009Test is Test {
         vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
         token.transferWithAuthorization(signer, recipient, amount, 0, validBefore, nonce, v, r, s);
     }
+
+    function test_receiveWithAuthorization_callerBelowRecipientReverts() public {
+        // recipient is 0xBEEF; use a caller whose address is numerically BELOW it
+        // so the mutant `to < msg.sender` (0xBEEF < 0x1 == false) fails to revert.
+        bytes32 nonce = keccak256("nonce-recv-caller-below");
+        uint256 validAfter = 0;
+        uint256 validBefore = block.timestamp + 1 hours;
+
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+
+        address lowCaller = address(0x1); // < recipient (0xBEEF) and != recipient
+        vm.prank(lowCaller);
+        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        token.receiveWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
+    }
+
+    function test_cancelAuthorization_recoveredAboveAuthorizerReverts() public {
+        // authorizer is a tiny address; the recovered signer (signerPk -> 0xe05f...) is
+        // numerically ABOVE it, so `signer != authorizer` reverts but `signer < authorizer` does not.
+        address lowAuthorizer = address(0x1);
+        bytes32 nonce = keccak256("nonce-cancel-recovered-above");
+
+        (uint8 cv, bytes32 cr, bytes32 cs) = _signCancel(lowAuthorizer, nonce, signerPk);
+
+        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        token.cancelAuthorization(lowAuthorizer, nonce, cv, cr, cs);
+    }
+
+    function test_transferWithAuthorization_recoveredAboveFromReverts() public {
+        // from is a tiny address; the recovered signer (signerPk -> 0xe05f...) is numerically
+        // ABOVE it, so `signer != from` reverts but `signer < from` does not. value=0 means the
+        // mutant path completes with no revert instead of reverting InvalidSignature.
+        address lowFrom = address(0x1);
+        bytes32 nonce = keccak256("nonce-recovered-above-from");
+        uint256 validAfter = 0;
+        uint256 validBefore = block.timestamp + 1 hours;
+
+        (uint8 v, bytes32 r, bytes32 s) = _signTransfer(lowFrom, recipient, 0, validAfter, validBefore, nonce, signerPk);
+
+        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        token.transferWithAuthorization(lowFrom, recipient, 0, validAfter, validBefore, nonce, v, r, s);
+    }
+
+    function test_transferWithAuthorization_validAtExactValidAfterBoundary() public {
+        // Boundary: block.timestamp == validAfter must be VALID (no NotYetValid revert).
+        // Mutant `<=` reverts here; original `<` does not.
+        vm.warp(1000);
+        bytes32 nonce = keccak256("nonce-validafter-boundary");
+        uint256 validAfter = block.timestamp; // exactly now
+        uint256 validBefore = block.timestamp + 1 hours;
+
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+
+        token.transferWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
+        assertTrue(token.authorizationState(signer, nonce));
+    }
+
+    function test_transferWithAuthorization_strictlyPastValidBeforeReverts() public {
+        // Strictly past expiry: block.timestamp > validBefore. Original reverts Expired;
+        // mutant (== only) does NOT match here and would wrongly accept the authorization.
+        vm.warp(1000);
+        bytes32 nonce = keccak256("nonce-strictly-expired");
+        uint256 validAfter = 0;
+        uint256 validBefore = block.timestamp - 1; // block.timestamp > validBefore
+
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+
+        vm.expectRevert(ERC20EIP3009Upgradeable.AuthorizationExpired.selector);
+        token.transferWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
+    }
 }

@@ -6,6 +6,8 @@ import "../../contracts/Token.sol";
 import "../../contracts/mocks/MockERC1363Receiver.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {IERC1363Receiver} from "@openzeppelin/contracts/interfaces/IERC1363Receiver.sol";
+import {IERC1363Spender} from "@openzeppelin/contracts/interfaces/IERC1363Spender.sol";
 import "./UUPSProxy.sol";
 
 /**
@@ -653,6 +655,49 @@ contract TokenERC1363Test is Test {
         assertEq(token.balanceOf(eoa), amount - innerFee);
         assertEq(token.balanceOf(sender), senderBefore - amount - outerFee);
         assertEq(token.balanceOf(FEE_COLLECTOR), outerFee + innerFee);
+    }
+
+    function test_transferAndCall_lowWrongSelectorReverts() public {
+        // goodReceiver is a contract, so _isContract(to) is true and the callback runs.
+        // Force onTransferReceived to return a selector strictly LESS than
+        // ERC1363_RECEIVED (0x88a7ca5c) so that the mutant `retval > ERC1363_RECEIVED`
+        // is FALSE (no revert) while the correct `retval != ERC1363_RECEIVED` reverts.
+        vm.mockCall(
+            address(goodReceiver),
+            abi.encodeWithSelector(IERC1363Receiver.onTransferReceived.selector),
+            abi.encode(bytes4(0x00000001))
+        );
+
+        vm.prank(sender);
+        vm.expectRevert(ERC1363PayableUpgradeable.ERC1363TransferFailed.selector);
+        token.transferAndCall(address(goodReceiver), TRANSFER_AMOUNT);
+
+        vm.clearMockedCalls();
+    }
+
+    function test_approveAndCall_lowWrongSelectorReverts() public {
+        // goodReceiver is a contract (also implements IERC1363Spender), so _isContract(spender)
+        // is true and onApprovalReceived runs. Force it to return a selector strictly LESS than
+        // ERC1363_APPROVED (0x7b04a2d0) so the mutant `retval > ERC1363_APPROVED` is FALSE
+        // (no revert) while the correct `retval != ERC1363_APPROVED` reverts.
+        vm.mockCall(
+            address(goodReceiver),
+            abi.encodeWithSelector(IERC1363Spender.onApprovalReceived.selector),
+            abi.encode(bytes4(0x00000001))
+        );
+
+        vm.prank(sender);
+        vm.expectRevert(ERC1363PayableUpgradeable.ERC1363ApprovalFailed.selector);
+        token.approveAndCall(address(goodReceiver), TRANSFER_AMOUNT);
+
+        vm.clearMockedCalls();
+    }
+
+    function test_supportsInterface_lowUnknownReturnsFalse() public view {
+        // 0x00000001 is not any real interfaceId supported by the token, and it is
+        // strictly LESS than INTERFACE_ID_ERC1363 (0xb0202a11). Clean `==` -> false;
+        // the mutant `interfaceId <= INTERFACE_ID_ERC1363` -> true (wrongly claims support).
+        assertFalse(token.supportsInterface(0x00000001));
     }
 }
 

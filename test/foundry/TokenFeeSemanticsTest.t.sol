@@ -665,4 +665,34 @@ contract TokenFeeSemanticsTest is Test {
         assertEq(token.balanceOf(alice), aliceBefore - AMOUNT - FEE_ON_AMOUNT);
         assertEq(token.balanceOf(feeCollector), FEE_ON_AMOUNT);
     }
+
+    /// NET path: with collector numerically > sender, the fee leg must still
+    /// fire. Kills `collector != from` -> `collector < from` in _update.
+    function test_MUT_netPath_collectorGreaterThanSender_feeLegFires() public {
+        address bigCollector = address(type(uint160).max); // > alice numerically
+        token.setFeeCollector(bigCollector);
+        assertTrue(bigCollector > alice, "precondition: collector > sender");
+        uint256 collectorBefore = token.balanceOf(bigCollector);
+        vm.prank(alice);
+        token.transfer(bob, AMOUNT);
+        assertEq(token.balanceOf(bigCollector), collectorBefore + _fee(AMOUNT), "fee must reach collector on net path");
+        assertEq(token.balanceOf(bob), AMOUNT - _fee(AMOUNT));
+        assertEq(token.balanceOf(alice), INITIAL_SUPPLY - AMOUNT);
+    }
+
+    /// GROSS path: with collector numerically > sender, the fee leg must still
+    /// fire. Kills `collector != from` -> `collector < from` in _grossTransfer.
+    function test_MUT_grossPath_collectorGreaterThanSender_feeLegFires() public {
+        address bigCollector = address(type(uint160).max); // > alice numerically
+        token.setFeeCollector(bigCollector);
+        assertTrue(bigCollector > alice, "precondition: collector > sender");
+        uint256 collectorBefore = token.balanceOf(bigCollector);
+        vm.prank(alice);
+        token.transferAndCall(bob, AMOUNT);
+        assertEq(
+            token.balanceOf(bigCollector), collectorBefore + _fee(AMOUNT), "fee must reach collector on gross path"
+        );
+        assertEq(token.balanceOf(bob), AMOUNT);
+        assertEq(token.balanceOf(alice), INITIAL_SUPPLY - AMOUNT - _fee(AMOUNT));
+    }
 }

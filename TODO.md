@@ -9,11 +9,11 @@
 
 ## ⬜ Da fare — in ordine cronologico
 
-### 1. Completare la campagna di mutation testing — 🟢 NOI
-Il tool (mewt) è installato e configurato; la run parziale (64/917 mutanti) ha
-già trovato e chiuso 2 buchi reali. Resta da far girare i ~850 mutanti rimanenti
-(~1-2h, ripristinabile) e chiudere gli eventuali altri sopravvissuti con nuovi
-test. Comandi in `MUTATION_TESTING.md`. **Nessun ente esterno.**
+### 1. ~~Campagna di mutation testing~~ — ✅ FATTO (2026-07-12)
+Campagna mewt completa (917 mutanti, 855 catturati / 56 sopravvissuti / 6 skipped).
+I 56 sopravvissuti analizzati: 44 equivalenti (documentati), 12 buchi reali della
+suite chiusi con nuovi test → mutation score 100% sui non-equivalenti. Dettaglio
+in `MUTATION_TESTING.md`.
 
 ### 2. Compilare `GOVERNANCE.md` con i dati reali — 🟢 NOI (serve decisione utente)
 12 campi `<...>` da riempire: indirizzo del Safe, soglia M-of-N, firmatari, tipo
@@ -72,10 +72,9 @@ Logo/info su Polygonscan, token list, aggregatori, wallet.
 
 1. **`GOVERNANCE.md` ancora template** (12 campi `<...>`): finché non è compilato,
    il documento non è pronto per l'audit né per il redeploy pulito. → punto 2.
-2. **Mutation testing incompleto**: campagna parziale (7% dei mutanti). Nessun buco
-   di sicurezza trovato finora (i 2 sopravvissuti erano lacune di test già coperte
-   da Hardhat, ora blindate anche in Foundry), ma la copertura completa va finita
-   per essere certi. → punto 1.
+2. **Mutation testing COMPLETO**: nessun bug di contratto trovato. I 12 buchi erano
+   lacune della suite (regioni di input non esercitate), tutti chiusi; 44 mutanti
+   equivalenti documentati. Non è più un problema aperto (MUTATION_TESTING.md).
 3. **Deploy Amoy = deploy di TEST**: config modificata durante i test (collector/
    treasury su `0x…FEE1/FEE2`, ruoli al deployer, cicli avanzati). Il mainnet
    riparte pulito da `initialize`. Non è un bug, ma va ricordato.
@@ -89,7 +88,7 @@ Logo/info su Polygonscan, token list, aggregatori, wallet.
 - **v2.0.0 → v2.4.0**: custody fee a cicli, transfer fee a doppia semantica,
   freeze/blocklist, recovery, storage ERC-7201, split ruoli `FEE_ADMIN`/`SWEEPER`,
   `ContractURIsUpgradeable`, governance a due fasi (`AccessControlDefaultAdminRules`).
-- **534 test verdi** (315 Foundry + 219 Hardhat); Token.sol 100% lines/branches.
+- **546 test verdi** (327 Foundry + 219 Hardhat); Token.sol 100% lines/branches.
 - **CI** verde: Foundry + Hardhat + `forge fmt` + `forge build --sizes` (skip mock
   TokenV3 per EIP-170) + Slither (`--fail-medium`) + gas snapshot regression.
 - **Deploy Amoy v2.4.0** verificato + test on-chain (integrazione, caveaux, scala

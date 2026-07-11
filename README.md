@@ -1,7 +1,7 @@
 # TokenIGT — Advanced ERC-20 Token (v2.4.0)
 
 [![CI](https://github.com/JoeBosi/TokenIGT/actions/workflows/test.yml/badge.svg)](https://github.com/JoeBosi/TokenIGT/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/tests-530%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-546%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-Token.sol%20100%25-brightgreen)
 ![Solidity](https://img.shields.io/badge/solidity-0.8.28-blue)
 
@@ -62,11 +62,11 @@ pausa e recovery.
 
 ## Testing
 
-**534 test, tutti passanti** (stato 2026-07-11):
+**546 test, tutti passanti** (stato 2026-07-11):
 
 ```shell
 pnpm test        # 219 test Hardhat (~6s)
-forge test       # 315 test Foundry: 
+forge test       # 327 test Foundry: 
                  #   unit + fuzz + invariant (~18s)
 forge coverage   # Token.sol: 100% lines/branches; estensioni: 100% branches
 ```
