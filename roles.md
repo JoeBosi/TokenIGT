@@ -1,4 +1,4 @@
-# Roles & Methods Matrix — Token v2.0.0
+# Roles & Methods Matrix — Token v2.3.0
 
 Legenda:
 - **✅** = può chiamare il metodo (richiede il ruolo)

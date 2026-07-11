@@ -17,15 +17,22 @@
 ERC-7201 conformi e una nuova `initialize` a 9 parametri — incompatibile con le
 istanze v1.x.
 
-### Token Details (Amoy, v2.1.0)
+### Token Details (Amoy, v2.3.0 — valori di INITIALIZE)
+
+> ⚠️ Questi sono i valori di `initialize`. Il proxy è un DEPLOY DI TEST: durante
+> i test on-chain (AMOY_TEST_REPORT.md) collector/treasury sono stati spostati
+> su `0x…FEE1`/`0x…FEE2` e il ciclo custodia è stato avanzato — lo stato
+> corrente NON coincide più con questi valori iniziali. Verificare sempre lo
+> stato reale con `feeCollector()`/`custodyTreasury()`/`currentCycle()` prima
+> di operare su questo proxy.
 
 - **Name / Symbol / Decimals:** IGE Token / IGT / 18
 - **Initial Supply:** 10.000 IGT
 - **Transfer fee:** 1 bp (0,01%) — cap on-chain 100 bp
-- **Fee collector:** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
+- **Fee collector (a initialize):** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
 - **Custody fee:** 50 bp (0,50%) — cap on-chain 200 bp
-- **Custody treasury:** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
-- **Current cycle:** 1
+- **Custody treasury (a initialize):** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
+- **Current cycle (a initialize):** 1
 
 ### Role Assignments (Amoy)
 
@@ -50,29 +57,40 @@ cycle, `previewNet`/`previewGross`/`maxNetTransferable`, ruoli — tutto ✅.
 |---|---|
 | v2.1.0 | `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` |
 | v2.0.0 (recoverETH pre-rename) | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
-| v2.0.0 (recoverETH pre-rename) | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
 | v1.6.3-security-fixes | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` |
 | v1.6.2-cleanup-final | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` |
 
 ## Procedura di deploy
 
 ```bash
-pnpm hardhat run scripts/deploy/deploy_amoy.ts --network amoy   # deploy proxy+impl
+pnpm hardhat run scripts/deploy/deploy_amoy.ts --network amoy       # deploy proxy+impl
 # aggiornare PROXY_ADDRESS / IMPLEMENTATION_ADDRESS in .env
-pnpm hardhat run scripts/roles/grant_roles.ts --network amoy    # distribuzione ruoli
-pnpm hardhat verify --network amoy <IMPLEMENTATION>             # verifica sorgente
+pnpm hardhat run scripts/roles/grant_roles.ts --network amoy        # ruoli operativi
+PROXY_ADDRESS=... pnpm hardhat run scripts/deploy/verify.ts --network amoy
+                                                                     # verifica ENTRAMBI:
+                                                                     # implementation + proxy marcato come proxy
 ```
 
-Output del deploy in `deployments/amoy/` (`proxy.json`, `implementation.json`,
-`deploy-info.json`) e ABI in `abi/Token.json`.
+Per il redeploy pulito pre-mainnet (governance verso multisig), dopo il deploy:
+```bash
+GOVERNANCE_ADMIN=<safe> PROXY_ADDRESS=... \
+  pnpm hardhat run scripts/roles/finalize_governance.ts --network <rete>
+```
+Vedi la checklist completa in `PIANO_LAVORI.md` §E3.
+
+Output del deploy in `deployments/<rete>/` (`proxy.json`, `implementation.json`,
+`deploy-info.json`/`deployment.json`, `upgrade-history.json`) e ABI in `abi/Token.json`.
 
 ## Network Configuration
 
 | | Amoy Testnet | Polygon Mainnet |
 |---|---|---|
 | Chain ID | 80002 | 137 |
-| RPC | https://rpc-amoy.polygon.technology | https://polygon-rpc.com |
+| RPC | https://polygon-amoy-bor-rpc.publicnode.com | https://polygon-bor-rpc.publicnode.com |
 | Explorer | https://amoy.polygonscan.com | https://polygonscan.com |
+
+> RPC ufficiali (`rpc-amoy.polygon.technology`, `polygon-rpc.com`) sono spesso
+> rate-limited (Cloudflare 1015) — vedi `AMOY_TEST_REPORT.md`. Usare publicnode.
 
 > **Mainnet**: deploy SOLO a fine sviluppo/testing, dopo audit esterno, con
 > governance su multisig (vedi AGENTS.md §3.6 e AUDIT_INTERNO_V2.md).

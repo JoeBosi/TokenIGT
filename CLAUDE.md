@@ -10,7 +10,7 @@ Le specifiche operative complete (ruoli, storage layout ERC-7201, vincoli sulle 
 
 - Solidity `^0.8.28`, OpenZeppelin Upgradeable `5.x`, pattern UUPS (ERC-1967) con storage namespaced ERC-7201
 - Standard implementati: ERC-20, EIP-2612 Permit, EIP-3009, ERC-1363, EIP-5267
-- Feature custom: Fee (max 999 bp), Freeze, Block/Restricted, Recoverable, Pausable
+- Feature custom: Transfer fee (cap 100 bp), Custody fee (cap 200 bp), Freeze, Blocklist, Recoverable, Pausable
 - Doppio toolchain: **Hardhat** (test TS + deploy) e **Foundry** (unit/fuzz/invariant)
 - Reti: locale (31337), Amoy testnet (80002), Polygon mainnet (137)
 
@@ -31,7 +31,7 @@ pnpm hardhat compile      # Build Hardhat (output artifacts/; Foundry usa out/ �
 2. **Optimizer allineato**: foundry.toml e hardhat.config.ts compilano entrambi con `optimizer=true, runs=200, evm_version=cancun`. Non disallinearli: i test devono coprire il bytecode che va on-chain.
 3. **Tutti i 454 test devono passare** (192 Hardhat + 262 Foundry) prima di ogni commit. La CI (.github/workflows/test.yml) esegue `forge fmt --check`, `forge build --sizes`, `forge test -vvv`.
 4. **Mai committare segreti**: `.env` è gitignored e contiene chiavi private/API key; usare `.env.example` come template. Non stampare mai il contenuto di `.env`.
-5. **Access control**: ogni funzione privilegiata richiede il ruolo dedicato (MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_ADMIN, UPGRADER, RECOVERER). Nuove funzioni privilegiate → nuovo test di access control su entrambe le suite.
+5. **Access control**: ogni funzione privilegiata richiede il ruolo dedicato (MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_MANAGER, UPGRADER, RECOVERER). Nuove funzioni privilegiate → nuovo test di access control su entrambe le suite.
 6. **Deploy**: script in `scripts/deploy/`; gli esiti vanno in `deployments/<rete>/`. Il deploy mainnet Polygon non è ancora avvenuto — richiede sempre conferma esplicita dell'utente.
 
 ## Skills installate (.claude/skills/)

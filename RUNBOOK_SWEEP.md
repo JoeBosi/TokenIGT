@@ -1,6 +1,6 @@
 # RUNBOOK — Incasso della custody fee (sweep)
 
-> Procedura operativa vincolante · v1.0 (2026-07-07) · Token IGT v2.1.0
+> Procedura operativa vincolante · v1.0 (2026-07-07) · Token IGT v2.3.0
 > Ciclo di riferimento: 20 marzo (convenzione off-chain, non enforced on-chain)
 > **ORDINE OBBLIGATORIO: PAUSA → SNAPSHOT → SWEEP → VERIFICA → UNPAUSE**
 > (specifica emittente 2026-07-07: lo snapshot si fa sullo stato congelato)
