@@ -89,11 +89,55 @@ vari (media €2.000 ≈ 8,609 IGT, grandi, piccolo, dust).
   costo fisso di transazione è ammortizzato su pochi holder; su batch grandi scende
   verso ~18–35k/holder come misurato in locale).
 
+## 4. Prova di SCALA dello sweep (100 holder, on-chain)
+
+Estensione del caveaux base (6 holder) a 100 holder reali su Amoy per misurare
+su rete vera l'ammortamento del costo fisso di transazione e la correttezza
+dello sweep a batch. Script: `scripts/amoy_test/onchain_scale.ts` (parametrico
+via `SCALE_HOLDERS`/`SCALE_BATCH`; seeding a chunk con gestione nonce esplicita
+per resistere all'RPC pubblico).
+
+| Check | Esito |
+|---|---|
+| Seeding 100 holder (mint a chunk) | 🟢 ~28 s |
+| Tutti i 100 holder marcati nel ciclo | 🟢 |
+| **Riconciliazione** (delta treasury == Σ fee attese, calcolate dai saldi reali congelati) | 🟢 al wei (8,5445401125 IGT) |
+| Re-sweep dello stesso batch nello stesso ciclo = no-op | 🟢 |
+| Unpause riapre il token | 🟢 |
+
+**Profilo gas per dimensione batch (dato on-chain reale):**
+
+| Batch | Stato slot `lastSweptCycle` | Gas totale | Gas/holder |
+|---:|---|---:|---:|
+| 6 (caveaux base) | freddo (primo sweep) | 332.582 | 55.430 |
+| 50 | freddo (primo sweep) | 2.268.914 | 45.378 |
+| 100 (tx singola) | caldo (già sweepati) | 2.689.529 | **26.895** |
+
+- L'ammortamento del costo fisso di transazione (~21k gas) è netto: da 55k/holder
+  a batch 6 a 27k/holder a batch 100. Il salto batch-50→batch-100 riflette anche
+  il costo dello slot `lastSweptCycle`: **freddo** (0→ciclo, ~20k SSTORE) al primo
+  sweep, **caldo** (ciclo→ciclo, ~5k) nei cicli successivi — coerente col profilo
+  locale (35k ciclo 1 / 18k cicli 2+).
+- **Un batch da 100 holder sta in UNA sola tx da 2,69M gas**, largamente sotto il
+  tx gas cap reale (33,55M su Polygon PoS). Estrapolando linearmente: batch 300
+  ≈ 8M gas, batch 700 ≈ 18,8M — entrambi ampiamente sotto il cap. La dimensione
+  operativa 300 del runbook è confermata fattibile su rete vera.
+- Re-sweep idempotente di 100 holder già sweepati: 661.003 gas (~6,6k/holder di
+  sole letture) — reinviare un batch per retry costa poco, come atteso.
+
+> Nota: il primo run con batch 100 aveva mostrato `treasuryDeltaEqualsExpected:
+> false` — era un bug del **calcolo dell'atteso nello script** (assumeva il saldo
+> base ignorando i residui post-sweep di cicli precedenti su holder ri-toppati),
+> NON del contratto: la fee raccolta era sempre esattamente lo 0,5% del saldo
+> reale. Lo script ora calcola l'atteso dai saldi reali congelati (riconciliazione
+> robusta) e chiude 🟢.
+
 ## Esito complessivo
 **🟢 Tutto superato on-chain.** Il contratto v2.4.0 deployato su Amoy si comporta
 esattamente come in locale: split di ruolo FEE_ADMIN/SWEEPER, doppia semantica
-fee, restrizioni, recovery con evento, e la procedura di custodia completa con
-riconciliazione esatta al wei — con il nuovo SWEEPER_ROLE correttamente gated.
+fee, restrizioni, recovery con evento, la procedura di custodia completa con
+riconciliazione esatta al wei — con il nuovo SWEEPER_ROLE correttamente gated — e
+lo sweep a scala (100 holder, batch singolo, ammortamento gas confermato).
 
 ## Problemi incontrati
 - **`nonce too low` transitorio** sull'RPC pubblico durante `onchain_caveaux.ts`:
@@ -107,4 +151,5 @@ riconciliazione esatta al wei — con il nuovo SWEEPER_ROLE correttamente gated.
 ## Script (riutilizzabili)
 - `scripts/amoy_test/onchain_integration.ts` — integrazione (fee/freeze/block/pause/recovery)
 - `scripts/amoy_test/onchain_caveaux.ts` — sweep custodia end-to-end (ora con auto-grant SWEEPER_ROLE)
-- Output: `scripts/amoy_test/results/{integration,caveaux}.json`
+- `scripts/amoy_test/onchain_scale.ts` — prova di scala parametrica (`SCALE_HOLDERS`/`SCALE_BATCH`)
+- Output: `scripts/amoy_test/results/{integration,caveaux,scale}.json`

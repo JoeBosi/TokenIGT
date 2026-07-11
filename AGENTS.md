@@ -135,7 +135,7 @@ a fine fase di sviluppo/testing, dopo audit esterno.
 
 - **Target**: ≥95% lines / ≥90% branches sui contratti core (attuale: Token 100%/100%,
   estensioni ≥93,6% lines e 100% branches — residuo = `__init_unchained` vuote)
-- Stato attuale: **532 test verdi** (313 Foundry: unit+fuzz+invariant; 219 Hardhat)
+- Stato attuale: **534 test verdi** (315 Foundry: unit+fuzz+invariant; 219 Hardhat)
 - Ogni funzione privilegiata DEVE avere il test "ruolo sbagliato → 
   `AccessControlUnauthorizedAccount`" su entrambe le suite
 - Ogni feature nuova: test in ENTRAMBE le suite (Foundry = fuzz/invariant,
@@ -322,7 +322,7 @@ compromessa non deve poter redirigere gli utenti verso attestazioni false.
 
 1. Compilare senza warning propri (0.8.28, optimizer 200 runs, cancun) e con
    `forge fmt --check` pulito (CI).
-2. **Tutti i 532 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
+2. **Tutti i 534 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
 3. Validare ogni upgrade con OZ Upgrades; mai modificare layout esistenti.
 4. NatSpec completo su funzioni pubbliche/external, eventi ed errori custom.
 5. Moduli custom coperti ≥95% lines / 100% branches.
@@ -349,7 +349,7 @@ compromessa non deve poter redirigere gli utenti verso attestazioni false.
 pnpm install                # setup
 pnpm hardhat compile        # compile + typechain
 pnpm test                   # 219 test Hardhat
-forge test                  # 313 test Foundry (unit+fuzz+invariant)
+forge test                  # 315 test Foundry (unit+fuzz+invariant)
 forge coverage              # coverage core
 forge fmt                   # format (CI: forge fmt --check)
 forge build --sizes         # check EIP-170

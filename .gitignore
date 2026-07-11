@@ -14,3 +14,7 @@ out/
 # File duplicati da conflitti di sincronizzazione (iCloud/Finder) — mai committare
 *\ (1)*
 *\ (2)*
+
+# mewt mutation testing — DB di campagna (transiente, non versionare)
+mewt.sqlite
+mewt.sqlite-*

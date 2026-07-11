@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../../contracts/Token.sol";
 import "../../contracts/mocks/TokenV2.sol";
 import "./UUPSProxy.sol";
@@ -425,6 +426,25 @@ contract TokenMiscTest is Test {
 
     function test_version_returnsV2() public view {
         assertEq(token.version(), "2.4.0");
+    }
+
+    /// @dev name/symbol/decimals set by __ERC20_init in initialize
+    /// (mutation-testing gap: removing __ERC20_init survived the Foundry suite)
+    function test_metadata_nameSymbolDecimals() public view {
+        assertEq(token.name(), "Test Token");
+        assertEq(token.symbol(), "TEST");
+        assertEq(token.decimals(), 18);
+    }
+
+    /// @dev The implementation contract must be locked by _disableInitializers()
+    /// in its constructor: calling initialize() directly on it (not through a
+    /// proxy) reverts. Guards a UUPS best practice — an un-disabled implementation
+    /// can be initialized and self-destructed/upgraded by an attacker.
+    /// (mutation-testing gap: removing _disableInitializers() survived.)
+    function test_implementation_cannotBeInitialized() public {
+        Token impl = new Token();
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        impl.initialize("X", "X", 0, address(0xA11CE), 0, address(0xFEE), 0, address(0x7EA), address(0xAD1), 3 days);
     }
 
     // ─────────────────────────────────────────────

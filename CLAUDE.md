@@ -19,7 +19,7 @@ Le specifiche operative complete (ruoli, storage layout ERC-7201, vincoli sulle 
 
 ```shell
 pnpm test                 # 219 test Hardhat (~6s)
-forge test                # 313 test Foundry: unit + fuzz + invariant (~18s)
+forge test                # 315 test Foundry: unit + fuzz + invariant (~18s)
 forge coverage            # Coverage (Token 100%/100%; estensioni 100% branches)
 forge build --sizes       # Verifica limite EIP-170 (runtime < 24.576 B)
 forge fmt                 # Format (la CI fa forge fmt --check)
@@ -30,7 +30,7 @@ pnpm hardhat compile      # Build Hardhat (output artifacts/; Foundry usa out/ �
 
 1. **Mai modificare l'ordine/layout dello storage** nei contratti upgradeable: solo append nei namespace ERC-7201. Validare con OZ Upgrades prima di ogni upgrade.
 2. **Optimizer allineato**: foundry.toml e hardhat.config.ts compilano entrambi con `optimizer=true, runs=200, evm_version=cancun`. Non disallinearli: i test devono coprire il bytecode che va on-chain.
-3. **Tutti i 532 test devono passare** (219 Hardhat + 313 Foundry) prima di ogni commit. La CI (.github/workflows/test.yml) esegue `forge fmt --check`, `forge build --sizes`, `forge test -vvv`.
+3. **Tutti i 534 test devono passare** (219 Hardhat + 315 Foundry) prima di ogni commit. La CI (.github/workflows/test.yml) esegue `forge fmt --check`, `forge build --sizes`, `forge test -vvv`.
 4. **Mai committare segreti**: `.env` è gitignored e contiene chiavi private/API key; usare `.env.example` come template. Non stampare mai il contenuto di `.env`.
 5. **Access control**: ogni funzione privilegiata richiede il ruolo dedicato (MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_ADMIN, SWEEPER, UPGRADER, RECOVERER). FEE_ADMIN gestisce i parametri di governance (fee/collector/treasury/esenzioni), SWEEPER esegue `startNewCycle`/`sweepCustodyFee` (split v2.4.0, vedi `roles.md`). Nuove funzioni privilegiate → nuovo test di access control su entrambe le suite.
 6. **Deploy**: script in `scripts/deploy/`; gli esiti vanno in `deployments/<rete>/`. Il deploy mainnet Polygon non è ancora avvenuto — richiede sempre conferma esplicita dell'utente.

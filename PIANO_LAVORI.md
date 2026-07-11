@@ -4,16 +4,23 @@
 > Documento di stato + pianificazione. Da rileggere all'inizio della prossima sessione.
 >
 > **Stato 2026-07-11 (fine giornata)**: v2.4.0 completamente implementato,
-> revisionato (4 agenti avversariali indipendenti: contratti, script, copertura
-> test, coerenza documenti — 1 finding medio su uno script e 2 gap di test
-> trovati e corretti) e **redeployato fresco su Amoy**
-> (proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`, verificato). 532 test
-> verdi (313 Foundry + 219 Hardhat), `forge fmt` pulito, `.gas-snapshot`
-> rigenerato, EIP-170 rispettato. Test on-chain reali (integrazione + caveaux
-> con SWEEPER_ROLE) tutti verdi — durante l'esecuzione è emerso e stato corretto
-> un bug reale in `onchain_caveaux.ts` (mancava l'auto-grant di SWEEPER_ROLE).
-> Dettaglio completo in AMOY_TEST_REPORT.md. **Resta da fare**: audit di
-> sicurezza esterno + mutation testing, poi redeploy pulito su mainnet (§6).
+> revisionato (4 agenti avversariali indipendenti), **redeployato fresco su Amoy**
+> (proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`, verificato), con **prova
+> di scala on-chain** (100 holder) e **mutation testing** avviato (mewt). 534 test
+> verdi (315 Foundry + 219 Hardhat), `forge fmt` pulito, `.gas-snapshot`
+> rigenerato, EIP-170 rispettato.
+>
+> **Ultimi lavori (self-doable, senza enti esterni):**
+> - Scale test sweep su Amoy: 100 holder reali, riconciliazione al wei,
+>   ammortamento gas confermato (55k→27k/holder), batch 100 in 1 tx da 2,69M gas
+>   (AMOY_TEST_REPORT.md §4).
+> - Mutation testing con mewt: run parziale (64/917 mutanti), 3 sopravvissuti →
+>   2 buchi reali della suite Foundry chiusi con nuovi test (implementation non
+>   inizializzabile, name/symbol) + 1 mutante equivalente documentato
+>   (MUTATION_TESTING.md).
+>
+> **Resta da fare (§6)**: completare la campagna mewt (self-doable), compilare
+> GOVERNANCE.md, poi audit esterno + redeploy pulito mainnet.
 
 ---
 
@@ -104,10 +111,10 @@ decisa da chi detiene `FEE_ADMIN_ROLE`. Riconsiderabile in futuro.
   `AccessControlDefaultAdminRulesUpgradeable` integrato in `Token.sol` (diamond
   inheritance risolta con override espliciti), `initialize` a 10 parametri,
   `version()` → `"2.4.0"`.
-- Test: 313 Foundry (+50 vs v2.3.0: `TokenFeeRolesTest`, `TokenContractURIsTest`,
-  `TokenAdminRulesTest`, guardiano storage per il nuovo namespace) + 219 Hardhat
-  (+26: `token.feeroles`, `token.adminrules`, `token.contracturis.spec.ts`) — 530
-  totali, tutti verdi.
+- Test: 315 Foundry (+53 vs v2.3.0: `TokenFeeRolesTest`, `TokenContractURIsTest`,
+  `TokenAdminRulesTest`, guardiano storage per il nuovo namespace, + test da
+  review e mutation testing) + 219 Hardhat (+27: `token.feeroles`,
+  `token.adminrules`, `token.contracturis.spec.ts`) — **534 totali**, tutti verdi.
 - Script: `deploy_local/amoy/polygon.ts` + `.env.example` aggiornati con
   `ADMIN_TRANSFER_DELAY_SECONDS`/`FEE_ADMIN_ADDRESS`/`SWEEPER_ADDRESS`;
   `finalize_governance.ts` riscritto per la FASE 1 (grant/renounce ruoli

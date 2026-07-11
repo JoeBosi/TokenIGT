@@ -55,15 +55,18 @@ pausa e recovery.
 - [MONITORING.md](./MONITORING.md) — osservabilità off-chain
 - [API.md](./API.md) — API reference
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — guida deploy
+- [GOVERNANCE.md](./GOVERNANCE.md) — mappa ruoli→indirizzi + handover a due fasi
+- [AMOY_TEST_REPORT.md](./AMOY_TEST_REPORT.md) — test on-chain (integrazione, caveaux, scala)
+- [MUTATION_TESTING.md](./MUTATION_TESTING.md) — mutation testing (mewt)
 - [CHANGELOG.md](./CHANGELOG.md) — changelog
 
 ## Testing
 
-**532 test, tutti passanti** (stato 2026-07-11):
+**534 test, tutti passanti** (stato 2026-07-11):
 
 ```shell
 pnpm test        # 219 test Hardhat (~6s)
-forge test       # 313 test Foundry: 
+forge test       # 315 test Foundry: 
                  #   unit + fuzz + invariant (~18s)
 forge coverage   # Token.sol: 100% lines/branches; estensioni: 100% branches
 ```

@@ -18,10 +18,17 @@ All notable changes to the IGE Token project.
   `DEFAULT_ADMIN_ROLE` revertono sempre, incondizionatamente. Nuovo parametro
   `adminTransferDelay_` (10° argomento di `initialize`). Nuovo script
   `scripts/roles/accept_governance.ts` per la FASE 2 dell'handover.
-- 48 nuovi test Foundry dedicati (`TokenFeeRolesTest`, `TokenContractURIsTest`,
-  `TokenAdminRulesTest`) + 23 Hardhat equivalenti (`token.feeroles`,
-  `token.adminrules`, `token.contracturis`) → **532 test totali** (313 Foundry +
+- Nuovi test Foundry dedicati (`TokenFeeRolesTest`, `TokenContractURIsTest`,
+  `TokenAdminRulesTest`) + Hardhat equivalenti (`token.feeroles`,
+  `token.adminrules`, `token.contracturis`) → **534 test totali** (315 Foundry +
   219 Hardhat).
+- **Prova di scala dello sweep su Amoy** (`scripts/amoy_test/onchain_scale.ts`):
+  100 holder reali, batch fino a 100 in una sola tx (2,69M gas), ammortamento
+  gas confermato (55k→27k/holder), riconciliazione al wei (AMOY_TEST_REPORT.md §4).
+- **Mutation testing** con mewt 4.0.0 (Trail of Bits, `MUTATION_TESTING.md`):
+  run parziale che ha esposto 2 buchi della suite Foundry (implementation non
+  inizializzabile via `_disableInitializers`, assert `name()`/`symbol()`), chiusi
+  con 2 nuovi test; 1 mutante equivalente documentato.
 
 ### Changed
 - **Split di `FEE_MANAGER_ROLE`** (revisione della decisione D2, PIANO_LAVORI

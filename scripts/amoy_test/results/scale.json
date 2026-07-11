@@ -1,0 +1,31 @@
+{
+  "date": "2026-07-11T15:37:26.379Z",
+  "proxy": "0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515",
+  "network": "amoy",
+  "cycle": "5",
+  "holders": 100,
+  "batchSize": 100,
+  "batches": 1,
+  "perHolderBalance": "8.609",
+  "totalCollected": "8.5445401125",
+  "expectedTotal": "8.5445401125",
+  "totalGas": "2689529",
+  "avgGasPerHolder": 26895,
+  "seedSeconds": 0.2,
+  "sweepSeconds": 2.3,
+  "perBatch": [
+    {
+      "size": 100,
+      "gasUsed": "2689529",
+      "perHolder": 26895,
+      "tx": "0xeae2fa839f21431b0254bb10239fdb680edaaa1bae3f2fbbb8c9a11aae034259"
+    }
+  ],
+  "idempotentResweepGas": "661003",
+  "checks": {
+    "allHoldersSwept": true,
+    "treasuryDeltaEqualsExpected": true,
+    "idempotentResweepIsNoop": true,
+    "unpaused": true
+  }
+}
