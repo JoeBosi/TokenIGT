@@ -1,8 +1,9 @@
 # Report test on-chain su Amoy — Token v2.4.0
 
-> Data: 2026-07-11 · Rete: Amoy testnet (chainId 80002) · Deploy fresco v2.4.0
-> Metodo: gate locale (532 test) → review avversariale (4 agent: contratti, script,
-> copertura test, coerenza documenti) → deploy → verifica → integrazione on-chain → caveaux
+> Data: 2026-07-11/12 · Rete: Amoy testnet (chainId 80002) · Deploy fresco v2.4.0
+> Metodo: gate locale (546 test) → review avversariale (4 agent: contratti, script,
+> copertura test, coerenza documenti) → deploy → verifica → integrazione on-chain →
+> caveaux → prova di scala → mutation testing (mewt, vedi MUTATION_TESTING.md)
 
 ## Deployment (nuovo, v2.4.0)
 
@@ -32,9 +33,12 @@
 - `initialize` a 10 parametri (nuovo `adminTransferDelay_`).
 
 ## 1. Gate locale (pre-deploy)
-**532 test verdi** (313 Foundry unit+fuzz+invariant · 219 Hardhat) — conferma che
+**546 test verdi** (327 Foundry unit+fuzz+invariant · 219 Hardhat) — conferma che
 il bytecode v2.4.0 deployato è quello testato. `forge fmt --check` pulito,
-`.gas-snapshot` rigenerato e verificato (`--check --tolerance 3`).
+`.gas-snapshot` rigenerato e verificato (`--check --tolerance 3`). Il conteggio
+include i 12 test aggiunti dal mutation testing (MUTATION_TESTING.md); il deploy
+on-chain era gated a 532, i 12 test successivi coprono lo STESSO bytecode
+(nessuna modifica al contratto).
 
 ## 1bis. Review avversariale (4 agenti indipendenti)
 Eseguita sul diff completo prima del deploy:
