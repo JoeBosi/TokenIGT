@@ -102,7 +102,14 @@ esterno: ricompensa a chi trova e segnala vulnerabilità invece di sfruttarle.
 **E6 — Proof of reserves dell'oro** (dominio + possibile componente tecnica)
 Dimostrare che l'oro nel caveau esiste e copre il supply. Da splittare:
 - E6a: attestazioni periodiche del custode / audit del caveau (processo)
-- E6b: (opzionale) oracolo o attestazione on-chain delle riserve (tecnico)
+- E6b: `reserveInfoURI` (string, settabile, con evento) nel token AL REDEPLOY PULITO
+  → puntatore alla landing con i risultati delle verifiche (link, NON prova)
+- E6c: stesso link anche OFF-CHAIN sul profilo token Polygonscan (subito, zero codice)
+- E6d: `websiteURI`/`companyURI` (string, settabile) nel token per la landing della
+  SOCIETÀ, + stesso indirizzo sul profilo Polygonscan
+- E6e: (dopo, prova vera) contratto `ProofOfReserve` separato con
+  grams+auditor+documentHash+documentURI(IPFS)+evento, ruolo `ATTESTOR_ROLE`
+- E6f: (opzionale, avanzato) oracolo delle riserve on-chain (vedi nota oracolo)
 - È il punto più importante lato FIDUCIA per un token con sottostante fisico.
 
 **E7 — Metadati post-lancio** (branding/off-chain, non tocca il contratto) — da splittare:
