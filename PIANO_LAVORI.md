@@ -109,7 +109,8 @@ Dimostrare che l'oro nel caveau esiste e copre il supply. Da splittare:
   SOCIETÀ, + stesso indirizzo sul profilo Polygonscan
 - E6e: (dopo, prova vera) contratto `ProofOfReserve` separato con
   grams+auditor+documentHash+documentURI(IPFS)+evento, ruolo `ATTESTOR_ROLE`
-- E6f: (opzionale, avanzato) oracolo delle riserve on-chain (vedi nota oracolo)
+- E6f: ~~oracolo delle riserve on-chain~~ ESCLUSO per ora — si parte in MANUALE
+  (attestazione + link); l'oracolo eventualmente in futuro
 - È il punto più importante lato FIDUCIA per un token con sottostante fisico.
 
 **E7 — Metadati post-lancio** (branding/off-chain, non tocca il contratto) — da splittare:
