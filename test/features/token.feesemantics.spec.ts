@@ -39,10 +39,14 @@ describe("Token - Fee Semantics (net/gross)", function () {
         custodyBps,
         treasury.address,
         owner.address,
+        3 * 24 * 60 * 60,
       ],
       { kind: "uups" }
     )) as unknown as Token;
     await t.waitForDeployment();
+    // initialize() only grants FEE_ADMIN_ROLE to owner; SWEEPER_ROLE is a
+    // separate operational grant needed by the zero-bps sweep check below
+    await t.grantRole(await t.SWEEPER_ROLE(), owner.address);
     return t;
   }
 

@@ -19,7 +19,7 @@ describe("Token - Comprehensive Upgrade Tests", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -166,9 +166,9 @@ describe("Token - Comprehensive Upgrade Tests", function () {
     });
 
     it("Should handle fee functionality through upgrades", async function () {
-      // Grant UPGRADER_ROLE and FEE_MANAGER_ROLE to owner
+      // Grant UPGRADER_ROLE and FEE_ADMIN_ROLE to owner
       await token.grantRole(await token.UPGRADER_ROLE(), owner.address);
-      await token.grantRole(await token.FEE_MANAGER_ROLE(), owner.address);
+      await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       
       // Set fee in V1
       await token.connect(owner).setTransferFeeBps(50); // 0.5%

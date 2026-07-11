@@ -1,4 +1,4 @@
-# API Reference — Token v2.3.0
+# API Reference — Token v2.4.0
 
 Ruoli richiesti e matrice completa in [roles.md](./roles.md).
 Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.md).
@@ -6,9 +6,11 @@ Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.m
 ## Contract Addresses
 
 ### Amoy Testnet
-- **v2.1.0 (attivo)**: proxy `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` · implementation verificata `0xcbc86423AaE09Aa2f67A479acD2aa779e81b78F4`
-- (v1.6.3 storico: proxy `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — DEPRECATO,
-  API incompatibile con la v2)
+- **v2.4.0 (attivo)**: proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515` · implementation verificata `0x4409cC3D3fdFC26800223A26e931CbAD333DBD05`
+- (v2.3.0 storico: proxy `0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`; v2.1.0:
+  proxy `0x2b307FabB36e54Fbd0257cE597D7bE277df84922`; v1.6.3: proxy
+  `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — tutti DEPRECATI, vedi
+  DEPLOYMENT.md per il dettaglio storico completo)
 
 ## Initialize (proxy UUPS)
 
@@ -22,12 +24,14 @@ initialize(
     address feeCollector_,     // != 0 — InvalidFeeCollector
     uint256 custodyFeeBps_,    // 0-200 (0 = spenta) — CustodyFeeExceedsMaximum
     address custodyTreasury_,  // != 0 — InvalidCustodyTreasury
-    address defaultAdmin_      // != 0 — InvalidAdmin
+    address defaultAdmin_,     // != 0 — InvalidAdmin
+    uint48  adminTransferDelay_ // delay per beginDefaultAdminTransfer (v2.4.0)
 )
 ```
 
-Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_MANAGER, RECOVERER.
-Emette `CycleStarted(1, timestamp)`.
+Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_ADMIN, RECOVERER.
+`SWEEPER_ROLE` NON è tra questi (va concesso post-deploy). Emette
+`CycleStarted(1, timestamp)`.
 
 ## ERC-20 + supply
 
@@ -37,33 +41,36 @@ Emette `CycleStarted(1, timestamp)`.
 | `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
 | `mint(to, v)` | MINTER_ROLE |
 | `burn(from, v)` | BURNER_ROLE |
-| `version()` | `"2.3.0"` |
+| `version()` | `"2.4.0"` |
 
 ## Transfer fee (fee di scambio)
 
 | Funzione | Ruolo | Note |
 |---|---|---|
 | `transferFeeBps()` → uint256 | view | 0–100 |
-| `setTransferFeeBps(uint256)` | FEE_MANAGER | cap `MAX_TRANSFER_FEE_BPS = 100`; evento `TransferFeeUpdated(old, new)` |
-| `feeCollector()` / `setFeeCollector(address)` | view / FEE_MANAGER | ≠0; evento `FeeCollectorUpdated` |
+| `setTransferFeeBps(uint256)` | FEE_ADMIN | cap `MAX_TRANSFER_FEE_BPS = 100`; evento `TransferFeeUpdated(old, new)` |
+| `feeCollector()` / `setFeeCollector(address)` | view / FEE_ADMIN | ≠0; evento `FeeCollectorUpdated` |
 | `isTransferFeeExempt(address)` / `getTransferFeeExemptList()` | view | esente se mittente O destinatario nel set |
-| `addTransferFeeExempt(a)` / `removeTransferFeeExempt(a)` | FEE_MANAGER | idempotenti; evento `TransferFeeExemptionChanged(account, exempt)` solo al cambio |
+| `addTransferFeeExempt(a)` / `removeTransferFeeExempt(a)` | FEE_ADMIN | idempotenti; evento `TransferFeeExemptionChanged(account, exempt)` solo al cambio |
 | `previewNet(gross)` | view | netto consegnato da `transfer(gross)` (parti non-esenti) |
 | `previewGross(net)` | view | minimo lordo per consegnare ≥ net via `transfer` |
 | `maxNetTransferable(sender)` | view | max `v` con `v + fee(v) ≤ balance` (percorso lordo); balance se esente/fee 0; 0 se frozen/blocked |
 
 ## Custody fee (fee di custodia)
 
+Parametri di governance (`FEE_ADMIN_ROLE`) separati dalle operazioni di ciclo/sweep
+(`SWEEPER_ROLE`, split v2.4.0 — principio del minimo privilegio, vedi roles.md):
+
 | Funzione | Ruolo | Note |
 |---|---|---|
-| `custodyFeeBps()` / `setCustodyFeeBps(uint256)` | view / FEE_MANAGER | cap `MAX_CUSTODY_FEE_BPS = 200`; evento `CustodyFeeUpdated` |
-| `custodyTreasury()` / `setCustodyTreasury(address)` | view / FEE_MANAGER | ≠0; evento `CustodyTreasuryUpdated` |
+| `custodyFeeBps()` / `setCustodyFeeBps(uint256)` | view / FEE_ADMIN | cap `MAX_CUSTODY_FEE_BPS = 200`; evento `CustodyFeeUpdated` |
+| `custodyTreasury()` / `setCustodyTreasury(address)` | view / FEE_ADMIN | ≠0; evento `CustodyTreasuryUpdated` |
 | `currentCycle()` | view | parte da 1 |
-| `startNewCycle()` | FEE_MANAGER | evento `CycleStarted(cycle, timestamp)` |
+| `startNewCycle()` | SWEEPER | evento `CycleStarted(cycle, timestamp)` |
 | `lastSweptCycle(holder)` | view | 0 = mai sweepato |
 | `isCustodyFeeExempt(a)` / `getCustodyFeeExemptList()` | view | |
-| `addCustodyFeeExempt(a)` / `removeCustodyFeeExempt(a)` | FEE_MANAGER | idempotenti; evento `CustodyFeeExemptionChanged` |
-| `sweepCustodyFee(address[] holders)` | FEE_MANAGER | fee = `balance × bps / 10000` al momento; skip exempt/già sweepato/treasury/zero; **bypassa pause, transfer fee, blocklist, freeze**; evento `CustodyFeeCollected(holder, fee, cycle)` per ogni prelievo |
+| `addCustodyFeeExempt(a)` / `removeCustodyFeeExempt(a)` | FEE_ADMIN | idempotenti; evento `CustodyFeeExemptionChanged` |
+| `sweepCustodyFee(address[] holders)` | SWEEPER | fee = `balance × bps / 10000` al momento; skip exempt/già sweepato/treasury/zero; **bypassa pause, transfer fee, blocklist, freeze**; evento `CustodyFeeCollected(holder, fee, cycle)` per ogni prelievo |
 
 ## Restrizioni
 
@@ -111,3 +118,30 @@ Evento: `AssetRecovered(AssetKind indexed kind, address indexed asset, address i
 | Funzione | Note |
 |---|---|
 | `upgradeToAndCall(newImplementation, data)` | UUPS; `_authorizeUpgrade` gated dal ruolo |
+
+## ContractURIs (v2.4.0) — pointer informativi, DEFAULT_ADMIN_ROLE
+
+| Funzione | Note |
+|---|---|
+| `websiteURI()` / `setWebsiteURI(string)` | landing page ufficiale dell'emittente; evento `WebsiteURIUpdated(prev, new)` |
+| `reserveInfoURI()` / `setReserveInfoURI(string)` | pagina attestazioni proof-of-reserve (PEG_ORO.md) — pointer, non prova; evento `ReserveInfoURIUpdated(prev, new)` |
+| `contractURI()` / `setContractURI(string)` | metadata a livello contratto (ERC-7572); evento `ContractURIUpdated(prev, new)` |
+
+Tutti i setter richiedono `DEFAULT_ADMIN_ROLE`, non `FEE_ADMIN`/`SWEEPER` —
+`reserveInfoURI` è l'ancora di fiducia del token.
+
+## Governance handover (v2.4.0, AccessControlDefaultAdminRules)
+
+Il transfer di `DEFAULT_ADMIN_ROLE` è a due fasi con delay obbligatorio —
+`grantRole`/`revokeRole` su `DEFAULT_ADMIN_ROLE` **revertono sempre**:
+
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `beginDefaultAdminTransfer(address newAdmin)` | DEFAULT_ADMIN | schedula il transfer; evento `DefaultAdminTransferScheduled(newAdmin, schedule)` |
+| `acceptDefaultAdminTransfer()` | admin pendente | completa l'handover dopo il delay; reverta con `AccessControlInvalidDefaultAdmin`/`AccessControlEnforcedDefaultAdminDelay` se il chiamante o il timing sono sbagliati |
+| `cancelDefaultAdminTransfer()` | DEFAULT_ADMIN | annulla il transfer schedulato; evento `DefaultAdminTransferCanceled()` |
+| `changeDefaultAdminDelay(uint48)` / `rollbackDefaultAdminDelay()` | DEFAULT_ADMIN | ricalibra il delay stesso (con la propria finestra di sicurezza) |
+| `owner()` / `defaultAdmin()` / `pendingDefaultAdmin()` / `defaultAdminDelay()` / `pendingDefaultAdminDelay()` | view | stato corrente/pendente |
+
+Vedi GOVERNANCE.md per la coreografia operativa completa
+(`scripts/roles/finalize_governance.ts` + `scripts/roles/accept_governance.ts`).

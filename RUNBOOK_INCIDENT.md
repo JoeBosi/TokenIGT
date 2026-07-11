@@ -9,9 +9,10 @@
 | Ruolo | Potere in emergenza | Chi lo detiene (mainnet) |
 |---|---|---|
 | `PAUSER_ROLE` | `pause()` / `unpause()` | wallet operativo caldo (reazione rapida) |
-| `DEFAULT_ADMIN_ROLE` | `grantRole` / `revokeRole` | **multisig** (Safe) |
+| `DEFAULT_ADMIN_ROLE` | `grantRole` / `revokeRole` (ruoli ordinari); transfer di se stesso solo a due fasi con delay — vedi E4b.5 | **multisig** (Safe) |
 | `UPGRADER_ROLE` | `upgradeToAndCall` (hotfix) | **multisig** (Safe) |
-| `FEE_MANAGER_ROLE` | `setFeeCollector` / `setCustodyTreasury` | multisig o wallet dedicato |
+| `FEE_ADMIN_ROLE` | `setFeeCollector` / `setCustodyTreasury` (v2.4.0, split da FEE_MANAGER) | multisig o wallet dedicato |
+| `SWEEPER_ROLE` | `startNewCycle` / `sweepCustodyFee` (v2.4.0) | wallet operativo caldo — NON può ripuntare collector/treasury |
 
 > Su mainnet i ruoli critici (ADMIN/UPGRADER) sono su multisig → in emergenza
 > serve il quorum: tenere pronti i firmatari. Il PAUSER può stare su un wallet
@@ -47,8 +48,19 @@ Se una chiave privata di un ruolo è (sospetta) compromessa:
 4. Se compromesso è un firmatario del **multisig**: sostituiscilo nella policy del
    Safe (fuori dal token) e ri-verifica la soglia.
 5. Se compromesso è **DEFAULT_ADMIN** stesso → è lo scenario peggiore: l'attaccante
-   può ridistribuire ruoli. Mitigazione: ADMIN su multisig (nessuna singola chiave
-   basta). Se accadesse comunque, pause + upgrade d'emergenza (E4d) per neutralizzare.
+   può comunque `grantRole`/`revokeRole` su TUTTI gli altri ruoli (MINTER, UPGRADER,
+   FEE_ADMIN, ecc.) immediatamente — la protezione v2.4.0
+   (`AccessControlDefaultAdminRulesUpgradeable`) copre SOLO il trasferimento di
+   `DEFAULT_ADMIN_ROLE` a un NUOVO indirizzo, non le azioni con il ruolo già
+   posseduto. Vantaggio difensivo: un tentativo dell'attaccante di dirottare
+   `DEFAULT_ADMIN_ROLE` verso un proprio indirizzo richiede
+   `beginDefaultAdminTransfer` (evento `DefaultAdminTransferScheduled`,
+   monitorabile) seguito dal delay configurato — se il team se ne accorge in
+   tempo, un QUALSIASI detentore di `DEFAULT_ADMIN_ROLE` (incluso l'attaccante
+   stesso, ma anche il resto del multisig se la chiave rubata è solo UNA firma)
+   può `cancelDefaultAdminTransfer()`. Mitigazione strutturale: ADMIN su multisig
+   (nessuna singola chiave/firma basta a completare `beginDefaultAdminTransfer`).
+   Se accadesse comunque, pause + upgrade d'emergenza (E4d) per neutralizzare.
 6. Ruoli utili da conoscere: `keccak256("MINTER_ROLE")`, `..._ROLE` — oppure leggili
    con `cast call $PROXY "MINTER_ROLE()(bytes32)"` ecc.
 
@@ -58,9 +70,9 @@ Se l'indirizzo che INCASSA le fee (`feeCollector`) o la custodia (`custodyTreasu
 è compromesso o errato:
 
 ```bash
-# FEE_MANAGER
-cast send $PROXY "setFeeCollector(address)" $NEW_COLLECTOR --private-key $FEE_MANAGER_KEY
-cast send $PROXY "setCustodyTreasury(address)" $NEW_TREASURY --private-key $FEE_MANAGER_KEY
+# FEE_ADMIN
+cast send $PROXY "setFeeCollector(address)" $NEW_COLLECTOR --private-key $FEE_ADMIN_KEY
+cast send $PROXY "setCustodyTreasury(address)" $NEW_TREASURY --private-key $FEE_ADMIN_KEY
 ```
 - **NON serve bloccare il token**: il rimedio è ripuntare il destinatario. I fondi
   già accumulati sull'indirizzo compromesso sono persi/da recuperare fuori dal token.

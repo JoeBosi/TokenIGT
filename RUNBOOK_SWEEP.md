@@ -1,6 +1,6 @@
 # RUNBOOK — Incasso della custody fee (sweep)
 
-> Procedura operativa vincolante · v1.0 (2026-07-07) · Token IGT v2.3.0
+> Procedura operativa vincolante · v2.0 (v2.4.0) · split ruolo FEE_ADMIN/SWEEPER
 > Ciclo di riferimento: 20 marzo (convenzione off-chain, non enforced on-chain)
 > **ORDINE OBBLIGATORIO: PAUSA → SNAPSHOT → SWEEP → VERIFICA → UNPAUSE**
 > (specifica emittente 2026-07-07: lo snapshot si fa sullo stato congelato)
@@ -9,7 +9,7 @@
 
 | Check | Come |
 |---|---|
-| Wallet operatore ha `FEE_MANAGER_ROLE` | `hasRole(FEE_MANAGER_ROLE, op)` — vedi roles.md |
+| Wallet operatore ha `SWEEPER_ROLE` | `hasRole(SWEEPER_ROLE, op)` — vedi roles.md |
 | Wallet pausa ha `PAUSER_ROLE` | idem |
 | **Funding POL** dell'operatore | Budget: `n_holder × gas/holder × gas_price`. Ciclo 1: 35.147 gas/holder; cicli 2+: 18.056. Esempio 100k holder, 280 gwei: ~988 POL (≈ € 65) + margine 50% → **1.500 POL** |
 | Parametri on-chain attesi | `custodyFeeBps() == 50`, `custodyTreasury()` corretta, `currentCycle()` = ciclo precedente |
@@ -30,8 +30,8 @@ Verifica: `paused() == true`. Da questo momento nessun transfer utente passa
 ## 2. APERTURA CICLO
 
 ```bash
-# wallet FEE_MANAGER
-cast send $PROXY "startNewCycle()" --rpc-url $RPC --private-key $FEE_MANAGER_KEY
+# wallet SWEEPER
+cast send $PROXY "startNewCycle()" --rpc-url $RPC --private-key $SWEEPER_KEY
 ```
 Verifica: `currentCycle()` incrementato; evento `CycleStarted(N, ts)`.
 
@@ -55,7 +55,7 @@ sotto il tx cap: 16,77M in locale/Ethereum, 33,55M su Polygon PoS post-Madhugiri
 
 ```bash
 # per ogni batch in batches.json (nonce sequenziali):
-cast send $PROXY "sweepCustodyFee(address[])" <batch> --rpc-url $RPC --private-key $FEE_MANAGER_KEY
+cast send $PROXY "sweepCustodyFee(address[])" <batch> --rpc-url $RPC --private-key $SWEEPER_KEY
 ```
 
 Proprietà che rendono lo sweep "tranquillo":
@@ -73,7 +73,7 @@ Proprietà che rendono lo sweep "tranquillo":
 
 Per >100k holder: inviare più tx per blocco con nonce sequenziali (il gas totale
 resta lo stesso); su mainnet si può salire a batch ~700 (cap 33,55M) dimezzando
-le tx. Oltre il milione di holder valutare più operatori con `FEE_MANAGER_ROLE`
+le tx. Oltre il milione di holder valutare più operatori con `SWEEPER_ROLE`
 in parallelo su sotto-liste disgiunte. **Da collaudare nella prova generale su
 Amoy (pianificata, con specifiche aggiuntive).**
 
@@ -115,8 +115,8 @@ Verifica: `paused() == false` + un transfer di prova.
 |---|---|
 | Errore grave durante lo sweep | `unpause()` immediato (PAUSER) — il ciclo resta aperto, si riprende in una nuova finestra; i prelievi già fatti restano validi (idempotenza) |
 | Gas price impennato | lo sweep può attendere: la pausa è il costo reale — valutare rinvio finestra |
-| Operatore compromesso | `revokeRole(FEE_MANAGER_ROLE, op)` dall'admin; i fondi prelevati sono già in treasury |
-| Treasury errata | STOP prima dello sweep: `setCustodyTreasury(corretta)` e ripartire dal §3 |
+| Operatore compromesso | `revokeRole(SWEEPER_ROLE, op)` dall'admin; i fondi prelevati sono già in treasury |
+| Treasury errata | STOP prima dello sweep: `setCustodyTreasury(corretta)` (wallet FEE_ADMIN, non SWEEPER) e ripartire dal §3 |
 
 ## Regole permanenti
 

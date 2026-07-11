@@ -19,13 +19,13 @@ describe("Token - Fee", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, INITIAL_FEE, owner.address, 50, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, INITIAL_FEE, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
 
-    const FEE_MANAGER_ROLE = await token.FEE_MANAGER_ROLE();
-    await token.grantRole(FEE_MANAGER_ROLE, feeAdmin.address);
+    const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
+    await token.grantRole(FEE_ADMIN_ROLE, feeAdmin.address);
   });
 
   describe("Fee Configuration", function () {

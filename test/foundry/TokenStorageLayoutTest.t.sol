@@ -48,13 +48,15 @@ contract TokenStorageLayoutTest is Test {
             feeCollector,
             CUSTODY_BPS,
             custodyTreasury,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         token = Token(payable(address(proxy)));
 
         token.grantRole(token.FREEZER_ROLE(), admin);
         token.grantRole(token.BLOCKER_ROLE(), admin);
+        token.grantRole(token.SWEEPER_ROLE(), admin);
     }
 
     /// @dev ERC-7201 standard formula
@@ -186,6 +188,55 @@ contract TokenStorageLayoutTest is Test {
     }
 
     // ─────────────────────────────────────────────
+    // advanced.token.contracturis.storage
+    // struct: { string websiteURI; string reserveInfoURI; string contractURI; }
+    // short-string encoding (<=31 bytes): data left-aligned, length*2 in the low byte
+    // ─────────────────────────────────────────────
+
+    /// @dev packs a short string (<=31 bytes) the way Solidity stores it inline
+    function _shortStringSlot(string memory str) internal pure returns (bytes32 word) {
+        bytes memory b = bytes(str);
+        require(b.length <= 31, "test only supports short strings");
+        assembly {
+            word := mload(add(b, 32))
+        }
+        word = word | bytes32(uint256(b.length * 2));
+    }
+
+    function test_contractURIsSlot_erc7201Conformance() public {
+        bytes32 base = _erc7201("advanced.token.contracturis.storage");
+        assertEq(uint256(base) & 0xff, 0);
+
+        // Uninitialized: empty strings encode to a zero slot
+        assertEq(vm.load(address(token), base), bytes32(0));
+
+        string memory website = "https://igt.example";
+        string memory reserveInfo = "https://reserve.example";
+        string memory contractMeta = "https://meta.example";
+
+        token.setWebsiteURI(website);
+        assertEq(
+            vm.load(address(token), base), _shortStringSlot(website), "websiteURI not at the declared ERC-7201 slot"
+        );
+
+        token.setReserveInfoURI(reserveInfo);
+        bytes32 reserveSlot = bytes32(uint256(base) + 1);
+        assertEq(
+            vm.load(address(token), reserveSlot),
+            _shortStringSlot(reserveInfo),
+            "reserveInfoURI not at the declared ERC-7201 slot"
+        );
+
+        token.setContractURI(contractMeta);
+        bytes32 contractSlot = bytes32(uint256(base) + 2);
+        assertEq(
+            vm.load(address(token), contractSlot),
+            _shortStringSlot(contractMeta),
+            "contractURI not at the declared ERC-7201 slot"
+        );
+    }
+
+    // ─────────────────────────────────────────────
     // Cross-check: the formula in this test matches the values hardcoded in
     // the extensions (documented in their @dev comments)
     // ─────────────────────────────────────────────
@@ -210,6 +261,10 @@ contract TokenStorageLayoutTest is Test {
         assertEq(
             _erc7201("advanced.token.eip3009.storage"),
             bytes32(0xe281c9e49b595b8ea7184e0675358c21ea63e763a0426bf5fc042fef0860fb00)
+        );
+        assertEq(
+            _erc7201("advanced.token.contracturis.storage"),
+            bytes32(0x2f61fe546e652f7829573e78b47106428dbe11840b9f360ee3179ad8b6e33700)
         );
     }
 }

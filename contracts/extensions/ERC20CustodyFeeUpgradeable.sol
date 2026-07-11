@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "./FeeManagerRole.sol";
+import "./FeeRoles.sol";
 
 /**
  * @title ERC20CustodyFeeUpgradeable
@@ -31,7 +31,7 @@ import "./FeeManagerRole.sol";
  *
  * Uses ERC-7201 namespaced storage.
  */
-abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgradeable, FeeManagerRole {
+abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgradeable, FeeRoles {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @dev Hard cap for the custody fee: 200 basis points = 2%
@@ -129,7 +129,7 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
     /**
      * @notice Set the custody fee in basis points (0 to disable, max 200)
      */
-    function setCustodyFeeBps(uint256 newBps) public onlyRole(FEE_MANAGER_ROLE) {
+    function setCustodyFeeBps(uint256 newBps) public onlyRole(FEE_ADMIN_ROLE) {
         if (newBps > MAX_CUSTODY_FEE_BPS) {
             revert CustodyFeeExceedsMaximum(newBps, MAX_CUSTODY_FEE_BPS);
         }
@@ -143,7 +143,7 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
     /**
      * @notice Set the custody treasury address (cannot be the zero address)
      */
-    function setCustodyTreasury(address newTreasury) public onlyRole(FEE_MANAGER_ROLE) {
+    function setCustodyTreasury(address newTreasury) public onlyRole(FEE_ADMIN_ROLE) {
         if (newTreasury == address(0)) {
             revert InvalidCustodyTreasury();
         }
@@ -157,7 +157,7 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
     /**
      * @notice Add an account to the custody fee exemption list (idempotent)
      */
-    function addCustodyFeeExempt(address account) public onlyRole(FEE_MANAGER_ROLE) {
+    function addCustodyFeeExempt(address account) public onlyRole(FEE_ADMIN_ROLE) {
         if (_getCustodyFeeStorage().exempt.add(account)) {
             emit CustodyFeeExemptionChanged(account, true);
         }
@@ -166,7 +166,7 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
     /**
      * @notice Remove an account from the custody fee exemption list (idempotent)
      */
-    function removeCustodyFeeExempt(address account) public onlyRole(FEE_MANAGER_ROLE) {
+    function removeCustodyFeeExempt(address account) public onlyRole(FEE_ADMIN_ROLE) {
         if (_getCustodyFeeStorage().exempt.remove(account)) {
             emit CustodyFeeExemptionChanged(account, false);
         }
@@ -175,7 +175,7 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
     /**
      * @notice Open a new custody cycle
      */
-    function startNewCycle() public onlyRole(FEE_MANAGER_ROLE) {
+    function startNewCycle() public onlyRole(SWEEPER_ROLE) {
         CustodyFeeStorage storage $ = _getCustodyFeeStorage();
         uint256 newCycle = ++$.currentCycle;
         emit CycleStarted(newCycle, block.timestamp);
@@ -189,7 +189,7 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
      * main contract).
      * @param holders The holders to sweep (enumerated off-chain)
      */
-    function sweepCustodyFee(address[] calldata holders) public onlyRole(FEE_MANAGER_ROLE) {
+    function sweepCustodyFee(address[] calldata holders) public onlyRole(SWEEPER_ROLE) {
         CustodyFeeStorage storage $ = _getCustodyFeeStorage();
         uint256 cycle = $.currentCycle;
         uint256 bps = $.custodyFeeBps;

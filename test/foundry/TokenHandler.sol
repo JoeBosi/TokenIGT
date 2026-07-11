@@ -33,7 +33,8 @@ contract TokenHandler is Test {
     address public pauser;
     address public freezer;
     address public blocker;
-    address public feeManager;
+    address public feeAdmin;
+    address public sweeper;
 
     constructor(Token _token, address _admin, address _initialHolder) {
         token = _token;
@@ -45,7 +46,8 @@ contract TokenHandler is Test {
         pauser = address(0x3);
         freezer = address(0x4);
         blocker = address(0x5);
-        feeManager = address(0x6);
+        feeAdmin = address(0x6);
+        sweeper = address(0x7);
 
         // Grant roles (requires admin to have DEFAULT_ADMIN_ROLE)
         vm.startPrank(admin);
@@ -54,7 +56,8 @@ contract TokenHandler is Test {
         _token.grantRole(_token.PAUSER_ROLE(), pauser);
         _token.grantRole(_token.FREEZER_ROLE(), freezer);
         _token.grantRole(_token.BLOCKER_ROLE(), blocker);
-        _token.grantRole(_token.FEE_MANAGER_ROLE(), feeManager);
+        _token.grantRole(_token.FEE_ADMIN_ROLE(), feeAdmin);
+        _token.grantRole(_token.SWEEPER_ROLE(), sweeper);
         vm.stopPrank();
 
         // Track the initial holder so the balance-sum invariant accounts for
@@ -154,7 +157,7 @@ contract TokenHandler is Test {
     function setTransferFeeBps(uint256 newBps) external {
         newBps = bound(newBps, 0, token.MAX_TRANSFER_FEE_BPS());
 
-        vm.prank(feeManager);
+        vm.prank(feeAdmin);
         token.setTransferFeeBps(newBps);
         currentTransferFeeBps = newBps;
     }
@@ -162,7 +165,7 @@ contract TokenHandler is Test {
     function setCustodyFeeBps(uint256 newBps) external {
         newBps = bound(newBps, 0, token.MAX_CUSTODY_FEE_BPS());
 
-        vm.prank(feeManager);
+        vm.prank(feeAdmin);
         token.setCustodyFeeBps(newBps);
     }
 
@@ -215,12 +218,12 @@ contract TokenHandler is Test {
             }
         }
 
-        vm.prank(feeManager);
+        vm.prank(sweeper);
         token.sweepCustodyFee(holders);
     }
 
     function startNewCycle() external {
-        vm.prank(feeManager);
+        vm.prank(sweeper);
         token.startNewCycle();
         cyclesStarted++;
     }

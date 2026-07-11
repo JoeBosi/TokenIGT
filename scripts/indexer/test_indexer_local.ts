@@ -14,11 +14,11 @@ async function main() {
   const Token = await ethers.getContractFactory("Token");
   const token = await upgrades.deployProxy(
     Token,
-    ["IGE Token", "IGT", 0, admin.address, 1, collector.address, 50, treasury.address, admin.address],
+    ["IGE Token", "IGT", 0, admin.address, 1, collector.address, 50, treasury.address, admin.address, 3 * 24 * 60 * 60],
     { kind: "uups" }
   );
   await token.waitForDeployment();
-  for (const role of ["MINTER_ROLE", "BURNER_ROLE", "PAUSER_ROLE"]) {
+  for (const role of ["MINTER_ROLE", "BURNER_ROLE", "PAUSER_ROLE", "SWEEPER_ROLE"]) {
     await (await token.grantRole(await (token as any)[role](), admin.address)).wait();
   }
 

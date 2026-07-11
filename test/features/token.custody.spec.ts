@@ -5,7 +5,7 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Token - Custody Fee", function () {
   let token: Token;
-  let owner: SignerWithAddress; // admin + FEE_MANAGER (dall'init)
+  let owner: SignerWithAddress; // admin + FEE_ADMIN (dall'init) + SWEEPER (grant esplicito)
   let holder1: SignerWithAddress;
   let holder2: SignerWithAddress;
   let treasury: SignerWithAddress;
@@ -32,6 +32,7 @@ describe("Token - Custody Fee", function () {
         CUSTODY_BPS,
         treasury.address,
         owner.address,
+        3 * 24 * 60 * 60,
       ],
       { kind: "uups" }
     )) as unknown as Token;
@@ -40,6 +41,7 @@ describe("Token - Custody Fee", function () {
     await token.grantRole(await token.PAUSER_ROLE(), owner.address);
     await token.grantRole(await token.FREEZER_ROLE(), owner.address);
     await token.grantRole(await token.BLOCKER_ROLE(), owner.address);
+    await token.grantRole(await token.SWEEPER_ROLE(), owner.address);
 
     // Fondi ai due holder
     await token.transfer(holder1.address, ethers.parseEther("1000"));
@@ -73,7 +75,7 @@ describe("Token - Custody Fee", function () {
         .withArgs(treasury.address, outsider.address);
     });
 
-    it("Should require FEE_MANAGER_ROLE for every write function", async function () {
+    it("Should require FEE_ADMIN_ROLE (setters) / SWEEPER_ROLE (cycle+sweep) for every write function", async function () {
       const t = token.connect(outsider);
       await expect(t.setCustodyFeeBps(10)).to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
       await expect(t.setCustodyTreasury(outsider.address)).to.be.revertedWithCustomError(

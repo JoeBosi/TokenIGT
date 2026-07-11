@@ -1,6 +1,6 @@
 # AGENTS.md — Specifica operativa per agenti AI
 
-## Token ERC-20 avanzato — v2.0.0 — OpenZeppelin v5.6.1 (UUPS)
+## Token ERC-20 avanzato — v2.4.0 — OpenZeppelin v5.6.1 (UUPS)
 
 > Documento operativo per lo sviluppo assistito da AI. Documenti correlati:
 > `SPEC_FEE_CUSTODIA.md` (spec e decisioni D1–D8), `roles.md` (matrice ruoli×metodi),
@@ -28,33 +28,35 @@ STESSE impostazioni di optimizer — i test devono coprire il bytecode che va on
 
 ```
 contracts/
-├── Token.sol                                # Contratto principale (v2.0.0)
+├── Token.sol                                # Contratto principale (v2.4.0)
 ├── extensions/
-│   ├── FeeManagerRole.sol                   # Costante FEE_MANAGER_ROLE condivisa
+│   ├── FeeRoles.sol                         # Costanti FEE_ADMIN_ROLE + SWEEPER_ROLE (split v2.4.0)
 │   ├── ERC20TransferFeeUpgradeable.sol      # Fee di scambio (sezione 8)
 │   ├── ERC20CustodyFeeUpgradeable.sol       # Fee di custodia a cicli (sezione 8.5)
 │   ├── ERC20FreezableUpgradeable.sol        # Freeze binario (sezione 11)
 │   ├── ERC20BlocklistUpgradeable.sol        # Blocklist (sezione 11)
 │   ├── ERC20EIP3009Upgradeable.sol          # Transfer With Authorization
 │   ├── ERC1363PayableUpgradeable.sol        # ERC-1363 custom (sezione 13)
-│   └── ERC20RecoverableUpgradeable.sol      # recoverERC20/Native/ERC721 (sezione 14)
+│   ├── ERC20RecoverableUpgradeable.sol      # recoverERC20/Native/ERC721 (sezione 14)
+│   └── ContractURIsUpgradeable.sol          # websiteURI/reserveInfoURI/contractURI (sezione 15)
 ├── interfaces/IERC3009.sol                  # (le IERC1363* sono quelle ufficiali OZ)
 └── mocks/                                   # TokenV2/V3 (fixture upgrade) + mock ERC20/721/1363
 
 scripts/
 ├── deploy/{deploy_local,deploy_amoy,deploy_polygon,verify}.ts
 ├── upgrade/{upgrade_local,upgrade_amoy,upgrade_polygon}.ts
-├── roles/{grant_roles,revoke_roles,list_roles}.ts
+├── roles/{grant_roles,revoke_roles,list_roles,finalize_governance,accept_governance}.ts
 └── archive/                                 # script one-off storici, NON usare
 
 test/
-├── core/        token.{core,roles,pause,supply,metadata}.spec.ts
+├── core/        token.{core,roles,pause,supply,metadata,feeroles,adminrules}.spec.ts
 ├── features/    token.{fee,freeze,block,permit,eip5267,erc1363,eip3009,recover,
-│                interactions,custody,feesemantics}.spec.ts
+│                interactions,custody,feesemantics,contracturis}.spec.ts
 ├── upgrade/     upgrade.{forward,compatibility,comprehensive}.spec.ts
 └── foundry/     Token.t.sol, TokenHandler.sol, UUPSProxy.sol,
                  Token{EIP3009,ERC1363,Recoverable,Misc,CoverageGaps,
-                 CustodyFee,FeeSemantics,StorageLayout}Test.t.sol
+                 CustodyFee,FeeSemantics,StorageLayout,FeeRoles,
+                 ContractURIs,AdminRules}Test.t.sol
 ```
 
 ---
@@ -66,24 +68,32 @@ Vedi `.env.example` (sempre allineato). Chiavi principali:
 - Rete: `PRIVATE_KEY`, `POLYGONSCAN_API_KEY`, `AMOY_RPC_URL`, `POLYGON_RPC_URL`
 - Ruoli: `DEFAULT_ADMIN_ADDRESS`, `UPGRADER_ADDRESS`, `MINTER_ADDRESS`,
   `BURNER_ADDRESS`, `PAUSER_ADDRESS`, `FREEZER_ADDRESS`, `BLOCKER_ADDRESS`,
-  `FEE_MANAGER_ADDRESS`, `RECOVERER_ADDRESS`
+  `FEE_ADMIN_ADDRESS`, `SWEEPER_ADDRESS` (split v2.4.0), `RECOVERER_ADDRESS`
 - Destinatari: `FEE_COLLECTOR_ADDRESS`, `CUSTODY_TREASURY_ADDRESS`, `INITIAL_HOLDER_ADDRESS`
 - Config: `TOKEN_NAME`, `TOKEN_SYMBOL`, `INITIAL_SUPPLY`,
   `TRANSFER_FEE_BASIS_POINTS` (cap on-chain **100** = 1%),
-  `CUSTODY_FEE_BASIS_POINTS` (cap on-chain **200** = 2%)
+  `CUSTODY_FEE_BASIS_POINTS` (cap on-chain **200** = 2%),
+  `ADMIN_TRANSFER_DELAY_SECONDS` (v2.4.0, obbligatorio su mainnet — sezione 3.6)
+- Governance: `GOVERNANCE_ADMIN` (Safe multisig destinatario dell'handover, sezione 4.4)
 - Deploy: `PROXY_ADDRESS`, `IMPLEMENTATION_ADDRESS`
 
-### 3.6 Concentrazione ruoli su testnet
+### 3.6 Concentrazione ruoli su testnet e governance a due fasi (v2.4.0)
 Su Amoy più ruoli condividono wallet per praticità. Su **mainnet** è obbligatorio:
 wallet distinti per i ruoli critici, `DEFAULT_ADMIN` e `UPGRADER` su **multisig**
-(Safe), valutare timelock e `AccessControlDefaultAdminRulesUpgradeable`
-(vedi AUDIT_INTERNO_V2.md, raccomandazione 1).
+(Safe). Il contratto integra `AccessControlDefaultAdminRulesUpgradeable` (già
+implementato, non più una raccomandazione futura — ex AUDIT_INTERNO_V2.md
+raccomandazione 1): il trasferimento di `DEFAULT_ADMIN_ROLE` richiede
+`beginDefaultAdminTransfer(newAdmin)` seguito, dopo il delay configurato in
+`adminTransferDelay_`, da `acceptDefaultAdminTransfer()` dal nuovo admin.
+`grantRole`/`revokeRole` su `DEFAULT_ADMIN_ROLE` revertono SEMPRE — l'unico modo
+di cambiarlo è questo flusso a due fasi (o `renounceRole` verso `address(0)` dopo
+uno scheduling analogo). Vedi GOVERNANCE.md e RUNBOOK_UPGRADE.md.
 
 ---
 
 ## 4. Deploy
 
-### 4.1 Firma di `initialize` (9 parametri — v2.0.0)
+### 4.1 Firma di `initialize` (10 parametri — v2.4.0)
 
 ```solidity
 initialize(
@@ -91,19 +101,26 @@ initialize(
     uint256 initialSupply_, address initialHolder_,
     uint256 transferFeeBps_,  address feeCollector_,    // cap 100, collector != 0
     uint256 custodyFeeBps_,   address custodyTreasury_, // cap 200, treasury != 0
-    address defaultAdmin_                               // != 0
+    address defaultAdmin_,                              // != 0
+    uint48  adminTransferDelay_                         // delay per beginDefaultAdminTransfer
 )
 ```
 
 `initialize` assegna al `defaultAdmin_` SOLO i ruoli di governance:
-`DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `FEE_MANAGER_ROLE`, `RECOVERER_ROLE`.
-Emette `CycleStarted(1, timestamp)` (il ciclo custodia parte da 1).
+`DEFAULT_ADMIN_ROLE`, `UPGRADER_ROLE`, `FEE_ADMIN_ROLE`, `RECOVERER_ROLE`.
+`SWEEPER_ROLE` (operativo) NON è tra questi — va concesso post-deploy come gli
+altri ruoli operativi (sezione 12). Emette `CycleStarted(1, timestamp)` (il
+ciclo custodia parte da 1).
 
 ### 4.4 Sequenza di deploy (tutte le reti)
 
 1. `upgrades.deployProxy(Token, initArgs, { kind: "uups" })` (validazione OZ inclusa)
 2. `scripts/roles/grant_roles.ts` — distribuzione ruoli operativi da `.env`
-3. `renounceRole` del deployer sui ruoli che non gli competono
+3. Se serve un handover di governance verso un multisig:
+   `scripts/roles/finalize_governance.ts` (FASE 1 — grant/renounce dei ruoli
+   ordinari + `beginDefaultAdminTransfer`), poi dopo il delay
+   `scripts/roles/accept_governance.ts` (FASE 2, eseguito dal nuovo admin —
+   vedi sezione 3.6 e GOVERNANCE.md)
 4. Verifica ruoli (`list_roles.ts`) e scrittura `deployments/<rete>/*.json`
 5. `verify.ts` per la verifica su Polygonscan
 6. Aggiornare `PROXY_ADDRESS`/`IMPLEMENTATION_ADDRESS` in `.env` e la documentazione
@@ -118,7 +135,7 @@ a fine fase di sviluppo/testing, dopo audit esterno.
 
 - **Target**: ≥95% lines / ≥90% branches sui contratti core (attuale: Token 100%/100%,
   estensioni ≥93,6% lines e 100% branches — residuo = `__init_unchained` vuote)
-- Stato attuale: **454 test verdi** (262 Foundry: unit+fuzz+invariant; 192 Hardhat)
+- Stato attuale: **532 test verdi** (313 Foundry: unit+fuzz+invariant; 219 Hardhat)
 - Ogni funzione privilegiata DEVE avere il test "ruolo sbagliato → 
   `AccessControlUnauthorizedAccount`" su entrambe le suite
 - Ogni feature nuova: test in ENTRAMBE le suite (Foundry = fuzz/invariant,
@@ -152,7 +169,7 @@ Trappola nota nei test Foundry: leggere i ruoli (`token.X_ROLE()`) PRIMA di
 
 Parametri: `transferFeeBps` (0–100, 0 = spenta), `feeCollector` (≠0),
 esenzioni `EnumerableSet` (esente se mittente O destinatario è nel set).
-Ruolo: `FEE_MANAGER_ROLE`. Fee: `value * bps / 10000` (floor).
+Ruolo: `FEE_ADMIN_ROLE`. Fee: `value * bps / 10000` (floor).
 
 ### 8.1 Percorso NETTO — `transfer` / `transferFrom`
 - mittente −value · destinatario +(value−fee) · collector +fee
@@ -185,8 +202,13 @@ Ruolo: `FEE_MANAGER_ROLE`. Fee: `value * bps / 10000` (floor).
 ### 8.5 Fee di custodia (custody fee) — NUOVA in v2.0.0
 
 Parametri: `custodyFeeBps` (0–200), `custodyTreasury` (≠0), `currentCycle` (da 1),
-`lastSweptCycle[holder]`, esenzioni EnumerableSet. Tutte le scritture:
-`FEE_MANAGER_ROLE` (decisione D2: un solo ruolo).
+`lastSweptCycle[holder]`, esenzioni EnumerableSet. Scritture split in v2.4.0
+(revisione di D2, PIANO_LAVORI §0.2/d): i setter di governance
+(`setCustodyFeeBps`, `setCustodyTreasury`, `add/removeCustodyFeeExempt`) restano
+su `FEE_ADMIN_ROLE`; le operazioni di ciclo/sweep (`startNewCycle`,
+`sweepCustodyFee`) sono su `SWEEPER_ROLE` — principio del minimo privilegio: la
+chiave operativa calda (centinaia di tx per lo sweep) non può alterare i
+parametri economici.
 
 **Sweep** (`sweepCustodyFee(address[] holders)`):
 - fee = `balanceOf(holder) * bps / 10000` calcolata AL MOMENTO → mai insufficienza
@@ -250,8 +272,8 @@ restricted…` senza mask) NON esistono più: la v2 richiede deploy fresco.
 ## 12. Ruoli
 
 Matrice completa in `roles.md`. Ruoli: `DEFAULT_ADMIN`, `UPGRADER`, `MINTER`,
-`BURNER`, `PAUSER`, `FREEZER`, `BLOCKER`, `FEE_MANAGER` (unico per entrambe le fee,
-dichiarato in `FeeManagerRole.sol`), `RECOVERER`.
+`BURNER`, `PAUSER`, `FREEZER`, `BLOCKER`, `FEE_ADMIN` + `SWEEPER` (split v2.4.0
+del precedente `FEE_MANAGER` unico, dichiarati in `FeeRoles.sol`), `RECOVERER`.
 
 ---
 
@@ -276,11 +298,31 @@ standard (paga transfer fee e rispetta la pausa) — comportamento documentato e
 
 ---
 
+## 15. ContractURIs — pointer informativi (v2.4.0)
+
+`ContractURIsUpgradeable`: tre stringhe ERC-7201 namespaced, tutte gestite da
+`DEFAULT_ADMIN_ROLE` (non delegate a `FEE_ADMIN`/`SWEEPER` — vedi sotto):
+
+- `websiteURI` — landing page ufficiale dell'emittente.
+- `reserveInfoURI` — pagina che pubblica le attestazioni di proof-of-reserve
+  periodiche (PEG_ORO.md). È un PUNTATORE, non una prova crittografica.
+- `contractURI` — metadata a livello di contratto (ERC-7572), tipicamente un
+  JSON consumato da explorer/marketplace.
+
+Setter: `setWebsiteURI`/`setReserveInfoURI`/`setContractURI`, ciascuno con
+evento `*Updated(previous, new)`. Nessun parametro in `initialize`: i valori
+partono da stringa vuota e si impostano post-deploy via script, come i ruoli
+operativi. `reserveInfoURI` è gated su `DEFAULT_ADMIN_ROLE` (non su un ruolo
+operativo) perché è l'ancora di fiducia del token: una chiave operativa
+compromessa non deve poter redirigere gli utenti verso attestazioni false.
+
+---
+
 ## 16. Regole finali per gli agent
 
 1. Compilare senza warning propri (0.8.28, optimizer 200 runs, cancun) e con
    `forge fmt --check` pulito (CI).
-2. **Tutti i 454 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
+2. **Tutti i 532 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
 3. Validare ogni upgrade con OZ Upgrades; mai modificare layout esistenti.
 4. NatSpec completo su funzioni pubbliche/external, eventi ed errori custom.
 5. Moduli custom coperti ≥95% lines / 100% branches.
@@ -292,7 +334,12 @@ standard (paga transfer fee e rispetta la pausa) — comportamento documentato e
     documentate nei NatSpec e coperte da test dedicati.
 11. **REGOLA OPERATIVA `renounceRole`**: mai rinunciare a `DEFAULT_ADMIN_ROLE`
     senza un secondo admin già attivo — il lockout della governance è
-    irreversibile (nessuno può più fare grant/revoke). Vale per ogni rete.
+    irreversibile (nessuno può più fare grant/revoke, né schedulare un nuovo
+    admin). Vale per ogni rete. Dalla v2.4.0 questo è anche STRUTTURALMENTE
+    protetto da `AccessControlDefaultAdminRulesUpgradeable`: `renounceRole`/
+    `grantRole`/`revokeRole` su `DEFAULT_ADMIN_ROLE` richiedono il flusso a due
+    fasi con delay (sezione 3.6) — un renounce diretto senza scheduling reverta
+    sempre con `AccessControlEnforcedDefaultAdminDelay`.
 
 ---
 
@@ -301,8 +348,8 @@ standard (paga transfer fee e rispetta la pausa) — comportamento documentato e
 ```bash
 pnpm install                # setup
 pnpm hardhat compile        # compile + typechain
-pnpm test                   # 192 test Hardhat
-forge test                  # 262 test Foundry (unit+fuzz+invariant)
+pnpm test                   # 219 test Hardhat
+forge test                  # 313 test Foundry (unit+fuzz+invariant)
 forge coverage              # coverage core
 forge fmt                   # format (CI: forge fmt --check)
 forge build --sizes         # check EIP-170
@@ -311,5 +358,7 @@ slither .                   # static analysis (config in slither.config.json)
 pnpm hardhat run scripts/deploy/deploy_local.ts
 pnpm hardhat run scripts/deploy/deploy_amoy.ts --network amoy
 pnpm hardhat run scripts/roles/grant_roles.ts --network amoy
+pnpm hardhat run scripts/roles/finalize_governance.ts --network amoy   # FASE 1 (handover)
+pnpm hardhat run scripts/roles/accept_governance.ts --network amoy    # FASE 2 (dopo il delay)
 pnpm hardhat run scripts/deploy/verify.ts --network amoy
 ```

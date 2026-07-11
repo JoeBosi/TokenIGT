@@ -41,7 +41,8 @@ contract TokenTest is Test {
             feeCollector,
             INITIAL_CUSTODY_FEE,
             custodyTreasury,
-            admin
+            admin,
+            3 days
         );
 
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
@@ -407,7 +408,7 @@ contract TokenTest is Test {
     }
 
     function test_version() public view {
-        assertEq(token.version(), "2.3.0");
+        assertEq(token.version(), "2.4.0");
     }
 
     /**

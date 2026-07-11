@@ -24,7 +24,7 @@ describe("Token - Access Control", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -39,10 +39,10 @@ describe("Token - Access Control", function () {
       const BURNER_ROLE = await token.BURNER_ROLE();
       const FREEZER_ROLE = await token.FREEZER_ROLE();
       const BLOCKER_ROLE = await token.BLOCKER_ROLE();
-      const FEE_MANAGER_ROLE = await token.FEE_MANAGER_ROLE();
+      const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
+      const SWEEPER_ROLE = await token.SWEEPER_ROLE();
       const RECOVERER_ROLE = await token.RECOVERER_ROLE();
 
-            
       expect(DEFAULT_ADMIN_ROLE).to.equal(ethers.ZeroHash); // DEFAULT_ADMIN_ROLE is always 0x00
       expect(UPGRADER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(PAUSER_ROLE).to.not.equal(ethers.ZeroHash);
@@ -50,7 +50,8 @@ describe("Token - Access Control", function () {
       expect(BURNER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(FREEZER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(BLOCKER_ROLE).to.not.equal(ethers.ZeroHash);
-      expect(FEE_MANAGER_ROLE).to.not.equal(ethers.ZeroHash);
+      expect(FEE_ADMIN_ROLE).to.not.equal(ethers.ZeroHash);
+      expect(SWEEPER_ROLE).to.not.equal(ethers.ZeroHash);
       expect(RECOVERER_ROLE).to.not.equal(ethers.ZeroHash);
     });
   });
@@ -74,10 +75,34 @@ describe("Token - Access Control", function () {
       expect(await token.hasRole(UPGRADER_ROLE, upgrader.address)).to.be.false;
     });
 
-    it("Should allow admin to renounce role", async function () {
+    it("Should reject a direct renounce of DEFAULT_ADMIN_ROLE without scheduling", async function () {
+      // AccessControlDefaultAdminRules requires beginDefaultAdminTransfer(0)
+      // + the delay to pass before DEFAULT_ADMIN_ROLE can be renounced —
+      // protects against an accidental governance lockout
       const DEFAULT_ADMIN_ROLE = await token.DEFAULT_ADMIN_ROLE();
-      await token.renounceRole(DEFAULT_ADMIN_ROLE, owner.address);
-      expect(await token.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.false;
+      await expect(token.renounceRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.revertedWithCustomError(
+        token,
+        "AccessControlEnforcedDefaultAdminDelay"
+      );
+    });
+
+    it("Should allow admin to renounce role after the scheduled transfer-to-zero delay passes", async function () {
+      // Snapshot/revert so the time warp below doesn't leak into the shared
+      // Hardhat chain clock and break other specs' hardcoded deadlines
+      // (permit / EIP-3009 signatures) run later in the same process.
+      const snapshotId = await ethers.provider.send("evm_snapshot", []);
+      try {
+        const DEFAULT_ADMIN_ROLE = await token.DEFAULT_ADMIN_ROLE();
+        await token.beginDefaultAdminTransfer(ethers.ZeroAddress);
+        // The deployProxy call above configured a 3-day adminTransferDelay
+        await ethers.provider.send("evm_increaseTime", [3 * 24 * 60 * 60 + 10]);
+        await ethers.provider.send("evm_mine", []);
+
+        await token.renounceRole(DEFAULT_ADMIN_ROLE, owner.address);
+        expect(await token.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.false;
+      } finally {
+        await ethers.provider.send("evm_revert", [snapshotId]);
+      }
     });
 
     it("Should not allow non-admin to grant roles", async function () {
@@ -173,10 +198,10 @@ describe("Token - Access Control", function () {
     });
   });
 
-  describe("FEE_MANAGER_ROLE", function () {
+  describe("FEE_ADMIN_ROLE", function () {
     it("Should allow fee admin to set fee", async function () {
-      const FEE_MANAGER_ROLE = await token.FEE_MANAGER_ROLE();
-      await token.grantRole(FEE_MANAGER_ROLE, feeAdmin.address);
+      const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
+      await token.grantRole(FEE_ADMIN_ROLE, feeAdmin.address);
       await token.connect(feeAdmin).setTransferFeeBps(50);
       expect(await token.transferFeeBps()).to.equal(50);
     });
@@ -184,6 +209,24 @@ describe("Token - Access Control", function () {
     it("Should not allow non-fee admin to set fee", async function () {
       await expect(token.connect(addr1).setTransferFeeBps(50))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
+    });
+  });
+
+  describe("SWEEPER_ROLE", function () {
+    it("Should allow sweeper to start a new custody cycle", async function () {
+      const SWEEPER_ROLE = await token.SWEEPER_ROLE();
+      await token.grantRole(SWEEPER_ROLE, addr1.address);
+      await token.connect(addr1).startNewCycle();
+      expect(await token.currentCycle()).to.equal(2);
+    });
+
+    it("Should not allow a fee admin (without SWEEPER_ROLE) to sweep", async function () {
+      const FEE_ADMIN_ROLE = await token.FEE_ADMIN_ROLE();
+      await token.grantRole(FEE_ADMIN_ROLE, feeAdmin.address);
+      await expect(token.connect(feeAdmin).startNewCycle()).to.be.revertedWithCustomError(
+        token,
+        "AccessControlUnauthorizedAccount"
+      );
     });
   });
 

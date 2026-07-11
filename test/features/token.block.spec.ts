@@ -18,7 +18,7 @@ describe("Token - Block", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 0, owner.address, 50, owner.address, owner.address], // 0 fee for block tests
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 0, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60], // 0 fee for block tests
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();

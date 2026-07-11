@@ -1,23 +1,61 @@
-# Report test on-chain su Amoy — Token v2.3.0
+# Report test on-chain su Amoy — Token v2.4.0
 
-> Data: 2026-07-08 · Rete: Amoy testnet (chainId 80002) · Deploy fresco v2.3.0
-> Metodo: gate locale (454 test) → deploy → verifica → integrazione on-chain → caveaux
+> Data: 2026-07-11 · Rete: Amoy testnet (chainId 80002) · Deploy fresco v2.4.0
+> Metodo: gate locale (532 test) → review avversariale (4 agent: contratti, script,
+> copertura test, coerenza documenti) → deploy → verifica → integrazione on-chain → caveaux
 
-## Deployment (nuovo, v2.3.0)
+## Deployment (nuovo, v2.4.0)
 
 | | Indirizzo |
 |---|---|
-| **Proxy (UUPS)** | [`0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`](https://amoy.polygonscan.com/address/0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC) |
-| **Implementation v2.3.0** | [`0xf977Bf61Ba628e05771470c66878999a697d241F`](https://amoy.polygonscan.com/address/0xf977Bf61Ba628e05771470c66878999a697d241F#code) (verificata ✅) |
+| **Proxy (UUPS)** | [`0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`](https://amoy.polygonscan.com/address/0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515) |
+| **Implementation v2.4.0** | [`0x4409cC3D3fdFC26800223A26e931CbAD333DBD05`](https://amoy.polygonscan.com/address/0x4409cC3D3fdFC26800223A26e931CbAD333DBD05#code) (verificata ✅) |
 
 > **Deploy di TEST** (non di produzione): durante i test la config è stata
 > modificata (feeCollector → `0x…FEE1`, custodyTreasury → `0x…FEE2`, ruoli
-> operativi concessi al deployer, ciclo custodia avanzato). Per un deploy
-> "pulito" pre-mainnet si riparte da `initialize` con i valori definitivi.
+> operativi concessi al deployer incluso il nuovo `SWEEPER_ROLE`, ciclo
+> custodia avanzato a 2). Per un deploy "pulito" pre-mainnet si riparte da
+> `initialize` con i valori definitivi e la coreografia di handover a due fasi
+> (`finalize_governance.ts` → `accept_governance.ts`, vedi GOVERNANCE.md).
+
+## 0. Novità v2.4.0 rispetto al deploy precedente (v2.3.0)
+
+- **Split di ruolo**: `FEE_MANAGER_ROLE` → `FEE_ADMIN_ROLE` (governance: setter
+  fee/collector/treasury/esenzioni) + `SWEEPER_ROLE` (operativo:
+  `startNewCycle`/`sweepCustodyFee`).
+- **`ContractURIsUpgradeable`**: `websiteURI`/`reserveInfoURI`/`contractURI`
+  (ERC-7572), gestiti da `DEFAULT_ADMIN_ROLE`.
+- **`AccessControlDefaultAdminRulesUpgradeable`**: transfer di
+  `DEFAULT_ADMIN_ROLE` a due fasi con delay obbligatorio (259.200s = 3 giorni
+  su questo deploy); `grantRole`/`revokeRole` su `DEFAULT_ADMIN_ROLE` revertono
+  sempre.
+- `initialize` a 10 parametri (nuovo `adminTransferDelay_`).
 
 ## 1. Gate locale (pre-deploy)
-**454 test verdi** (262 Foundry unit+fuzz+invariant · 192 Hardhat) — conferma che
-il bytecode v2.3.0 deployato è quello testato.
+**532 test verdi** (313 Foundry unit+fuzz+invariant · 219 Hardhat) — conferma che
+il bytecode v2.4.0 deployato è quello testato. `forge fmt --check` pulito,
+`.gas-snapshot` rigenerato e verificato (`--check --tolerance 3`).
+
+## 1bis. Review avversariale (4 agenti indipendenti)
+Eseguita sul diff completo prima del deploy:
+- **Sicurezza contratti** (diamond inheritance, role split, storage slot): nessun
+  bug trovato.
+- **Script di governance** (`finalize_governance.ts`/`accept_governance.ts`):
+  1 finding MEDIO — un re-run con `GOVERNANCE_ADMIN` diverso sovrascrive
+  silenziosamente il transfer pendente. **Corretto**: ora stampa un warning
+  esplicito prima di procedere.
+- **Copertura test**: 2 gap trovati e colmati — test di re-schedule di
+  `beginDefaultAdminTransfer` (`TokenAdminRulesTest.t.sol`), test di
+  sopravvivenza di ContractURIs/ruoli attraverso un upgrade UUPS
+  (`upgrade.compatibility.spec.ts`). `.gas-snapshot` era stale, rigenerato.
+- **Coerenza documentazione**: 1 riferimento stale trovato e corretto
+  (`Token.sol` NatSpec "FEE_MANAGER" → "FEE_ADMIN"); l'indirizzo v2.1.0 in
+  API.md era già disallineato con DEPLOYMENT.md (v2.3.0) indipendentemente
+  dal redeploy v2.4.0 — sincronizzato in questo stesso giro.
+- **Bug di script trovato durante il test on-chain reale** (non dalla review):
+  `onchain_caveaux.ts` chiamava `startNewCycle()`/`sweepCustodyFee()` senza
+  autoconcedersi `SWEEPER_ROLE` (auto-grant da `initialize` rimosso nello
+  split) — **corretto** prima di eseguire il test qui sotto.
 
 ## 2. Integrazione on-chain (transazioni reali sul proxy live)
 
@@ -30,42 +68,43 @@ il bytecode v2.3.0 deployato è quello testato.
 | PAUSE | 🟢 | transfer reverta in pausa; unpause ripristina |
 | RECOVERY nativo | 🟢 | `recoverNative` sposta POL ed **emette `AssetRecovered`** |
 
-> Nota: il test corregge un dettaglio — con `feeCollector == deployer` la fee
-> rientrerebbe al mittente (caso "collector == from") e non sarebbe osservabile;
-> per il test il collector è stato spostato su un indirizzo dedicato.
-
-## 3. Caveaux — sweep di custodia on-chain (procedura del runbook)
+## 3. Caveaux — sweep di custodia on-chain (procedura del runbook, con SWEEPER_ROLE)
 
 Flusso VINCOLANTE eseguito con transazioni reali: **pausa → apertura ciclo →
-snapshot → sweep → verifica → unpause**. 6 holder con balance vari (media €2.000
-≈ 8,609 IGT, grandi, piccolo, dust).
+snapshot → sweep → verifica → unpause**, tutte le operazioni di ciclo/sweep
+firmate dal `SWEEPER_ROLE` (non più `FEE_MANAGER_ROLE`). 6 holder con balance
+vari (media €2.000 ≈ 8,609 IGT, grandi, piccolo, dust).
 
 | Check | Esito |
 |---|---|
 | La pausa blocca i transfer normali | 🟢 |
-| Tutti gli holder marcati nel ciclo | 🟢 |
+| `startNewCycle`/`sweepCustodyFee` autorizzati da SWEEPER_ROLE | 🟢 |
+| Tutti gli holder marcati nel ciclo (cycle 2) | 🟢 |
 | **Delta treasury == Σ fee attese == Σ eventi** (505,08634 IGT) | 🟢 al wei |
 | Dust (199 wei-token): fee arrotondata a 0 | 🟢 |
 | Unpause riapre il token | 🟢 |
 
-- **Incasso**: 505,08634 IGT · tx sweep [`0xaed38afb…e1593`](https://amoy.polygonscan.com/tx/0xaed38afb2e9ef64a07d434447982e94ad46ee5bd6fc245da0206a68d274e1593)
-- **Gas**: 332.576 per il batch da 6 = **55.429/holder** (per-holder alto perché il
+- **Incasso**: 505,08634 IGT · tx sweep [`0x9b303a21…ceb95`](https://amoy.polygonscan.com/tx/0x9b303a21d0776f0d1a69db31429e5edbbb0a5de111fbc4d9736c142cbd8ceb95)
+- **Gas**: 332.582 per il batch da 6 = **55.430/holder** (per-holder alto perché il
   costo fisso di transazione è ammortizzato su pochi holder; su batch grandi scende
-  verso ~18–35k/holder come misurato in locale). Costo totale sweep ≈ **€ 0,006**.
+  verso ~18–35k/holder come misurato in locale).
 
 ## Esito complessivo
-**🟢 Tutto superato on-chain.** Il contratto v2.3.0 deployato su Amoy si comporta
-esattamente come in locale: doppia semantica fee, restrizioni, recovery con evento,
-e la procedura di custodia completa con riconciliazione esatta al wei.
+**🟢 Tutto superato on-chain.** Il contratto v2.4.0 deployato su Amoy si comporta
+esattamente come in locale: split di ruolo FEE_ADMIN/SWEEPER, doppia semantica
+fee, restrizioni, recovery con evento, e la procedura di custodia completa con
+riconciliazione esatta al wei — con il nuovo SWEEPER_ROLE correttamente gated.
 
 ## Problemi incontrati
-- **RPC pubblico rate-limited** (`rpc-amoy.polygon.technology` → Cloudflare 1015):
-  passato a `polygon-amoy-bor-rpc.publicnode.com` (stabile). `.env` aggiornato;
-  `.env.example` aggiornato col suggerimento.
-- **Test fee non osservabile** con collector == deployer: risolto usando un
-  collector/treasury dedicati nei test (non un bug del contratto).
+- **`nonce too low` transitorio** sull'RPC pubblico durante `onchain_caveaux.ts`:
+  errore di sincronizzazione nonce, non un bug — risolto ripetendo lo script.
+- **`onchain_caveaux.ts` non concedeva `SWEEPER_ROLE`** al deployer prima di
+  chiamare `startNewCycle`/`sweepCustodyFee` (script scritto per v2.3.0, dove
+  quei metodi erano ancora su `FEE_MANAGER_ROLE` auto-concesso dall'admin):
+  corretto aggiungendo l'auto-grant, come già faceva `onchain_integration.ts`
+  per gli altri ruoli operativi.
 
 ## Script (riutilizzabili)
 - `scripts/amoy_test/onchain_integration.ts` — integrazione (fee/freeze/block/pause/recovery)
-- `scripts/amoy_test/onchain_caveaux.ts` — sweep custodia end-to-end
+- `scripts/amoy_test/onchain_caveaux.ts` — sweep custodia end-to-end (ora con auto-grant SWEEPER_ROLE)
 - Output: `scripts/amoy_test/results/{integration,caveaux}.json`

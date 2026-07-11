@@ -17,7 +17,7 @@ describe("Token - Compatibility Upgrade", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -67,5 +67,35 @@ describe("Token - Compatibility Upgrade", function () {
 
     expect(await tokenV3.balanceOf(owner.address)).to.equal(balanceBefore);
     expect(await tokenV3.name()).to.equal("IGE Token");
+  });
+
+  it("Should preserve ContractURIs and FEE_ADMIN/SWEEPER role grants through V1 -> V2 -> V3 upgrades", async function () {
+    await token.grantRole(await token.UPGRADER_ROLE(), owner.address);
+
+    // Set all three v2.4.0 pointers and grant the split fee roles pre-upgrade
+    await token.setWebsiteURI("https://igt.example");
+    await token.setReserveInfoURI("https://reserve.igt.example");
+    await token.setContractURI("https://igt.example/metadata.json");
+
+    const feeAdmin = ethers.Wallet.createRandom().address;
+    const sweeper = ethers.Wallet.createRandom().address;
+    await token.grantRole(await token.FEE_ADMIN_ROLE(), feeAdmin);
+    await token.grantRole(await token.SWEEPER_ROLE(), sweeper);
+
+    const TokenV2 = await ethers.getContractFactory("TokenV2");
+    tokenV2 = (await upgrades.upgradeProxy(await token.getAddress(), TokenV2)) as unknown as TokenV2;
+    await tokenV2.waitForDeployment();
+    await tokenV2.initializeV2(42, "V2 String");
+
+    const TokenV3 = await ethers.getContractFactory("TokenV3");
+    tokenV3 = (await upgrades.upgradeProxy(await token.getAddress(), TokenV3)) as unknown as TokenV3;
+    await tokenV3.waitForDeployment();
+    await tokenV3.initializeV3(100);
+
+    expect(await tokenV3.websiteURI()).to.equal("https://igt.example");
+    expect(await tokenV3.reserveInfoURI()).to.equal("https://reserve.igt.example");
+    expect(await tokenV3.contractURI()).to.equal("https://igt.example/metadata.json");
+    expect(await tokenV3.hasRole(await tokenV3.FEE_ADMIN_ROLE(), feeAdmin)).to.be.true;
+    expect(await tokenV3.hasRole(await tokenV3.SWEEPER_ROLE(), sweeper)).to.be.true;
   });
 });

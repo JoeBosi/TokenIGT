@@ -29,7 +29,8 @@ import "./UUPSProxy.sol";
  *  3. Setters & access control:
  *     - setCustodyFeeBps (cap 200), setCustodyTreasury (!= 0), exemption list
  *     - idempotent add/remove (no event when state unchanged)
- *     - every write requires FEE_MANAGER_ROLE → AccessControlUnauthorizedAccount
+ *     - governance setters require FEE_ADMIN_ROLE, startNewCycle/sweepCustodyFee
+ *       require SWEEPER_ROLE → AccessControlUnauthorizedAccount
  *
  *  4. Fuzz: fee never exceeds balance, sweep never reverts, duplicates in batch.
  */
@@ -69,7 +70,8 @@ contract TokenCustodyFeeTest is Test {
             feeCollectorAddr,
             CUSTODY_FEE_BPS,
             custodyTreasuryAddr,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         token = Token(payable(address(proxy)));
@@ -80,6 +82,7 @@ contract TokenCustodyFeeTest is Test {
         token.grantRole(token.PAUSER_ROLE(), admin);
         token.grantRole(token.FREEZER_ROLE(), admin);
         token.grantRole(token.BLOCKER_ROLE(), admin);
+        token.grantRole(token.SWEEPER_ROLE(), admin);
     }
 
     // ─────────────────────────────────────────────
@@ -138,7 +141,8 @@ contract TokenCustodyFeeTest is Test {
             feeCollectorAddr,
             CUSTODY_FEE_BPS,
             custodyTreasuryAddr,
-            admin
+            admin,
+            3 days
         );
         assertEq(fresh.currentCycle(), 1);
     }
@@ -149,7 +153,16 @@ contract TokenCustodyFeeTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ERC20CustodyFeeUpgradeable.CustodyFeeExceedsMaximum.selector, 201, 200));
         fresh.initialize(
-            "IGE Token", "IGT", 0, address(0), TRANSFER_FEE_BPS, feeCollectorAddr, 201, custodyTreasuryAddr, admin
+            "IGE Token",
+            "IGT",
+            0,
+            address(0),
+            TRANSFER_FEE_BPS,
+            feeCollectorAddr,
+            201,
+            custodyTreasuryAddr,
+            admin,
+            3 days
         );
     }
 
@@ -159,7 +172,16 @@ contract TokenCustodyFeeTest is Test {
 
         vm.expectRevert(ERC20CustodyFeeUpgradeable.InvalidCustodyTreasury.selector);
         fresh.initialize(
-            "IGE Token", "IGT", 0, address(0), TRANSFER_FEE_BPS, feeCollectorAddr, CUSTODY_FEE_BPS, address(0), admin
+            "IGE Token",
+            "IGT",
+            0,
+            address(0),
+            TRANSFER_FEE_BPS,
+            feeCollectorAddr,
+            CUSTODY_FEE_BPS,
+            address(0),
+            admin,
+            3 days
         );
     }
 
@@ -618,50 +640,46 @@ contract TokenCustodyFeeTest is Test {
     }
 
     // ─────────────────────────────────────────────
-    // Access control — FEE_MANAGER_ROLE required on every write
+    // Access control — FEE_ADMIN_ROLE (governance setters) / SWEEPER_ROLE (ops)
     // ─────────────────────────────────────────────
 
-    function _expectUnauthorized(address account) internal {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, account, token.FEE_MANAGER_ROLE()
-            )
-        );
+    function _expectUnauthorized(address account, bytes32 role) internal {
+        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, role));
     }
 
     function test_setCustodyFeeBps_withoutRoleReverts() public {
-        _expectUnauthorized(unauthorized);
+        _expectUnauthorized(unauthorized, token.FEE_ADMIN_ROLE());
         vm.prank(unauthorized);
         token.setCustodyFeeBps(10);
     }
 
     function test_setCustodyTreasury_withoutRoleReverts() public {
-        _expectUnauthorized(unauthorized);
+        _expectUnauthorized(unauthorized, token.FEE_ADMIN_ROLE());
         vm.prank(unauthorized);
         token.setCustodyTreasury(address(0x7EA50002));
     }
 
     function test_addCustodyFeeExempt_withoutRoleReverts() public {
-        _expectUnauthorized(unauthorized);
+        _expectUnauthorized(unauthorized, token.FEE_ADMIN_ROLE());
         vm.prank(unauthorized);
         token.addCustodyFeeExempt(holderA);
     }
 
     function test_removeCustodyFeeExempt_withoutRoleReverts() public {
-        _expectUnauthorized(unauthorized);
+        _expectUnauthorized(unauthorized, token.FEE_ADMIN_ROLE());
         vm.prank(unauthorized);
         token.removeCustodyFeeExempt(holderA);
     }
 
     function test_startNewCycle_withoutRoleReverts() public {
-        _expectUnauthorized(unauthorized);
+        _expectUnauthorized(unauthorized, token.SWEEPER_ROLE());
         vm.prank(unauthorized);
         token.startNewCycle();
     }
 
     function test_sweepCustodyFee_withoutRoleReverts() public {
         address[] memory holders = _arr(holderA);
-        _expectUnauthorized(unauthorized);
+        _expectUnauthorized(unauthorized, token.SWEEPER_ROLE());
         vm.prank(unauthorized);
         token.sweepCustodyFee(holders);
     }

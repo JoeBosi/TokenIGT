@@ -37,7 +37,7 @@ contract TokenMiscTest is Test {
     Token public token;
 
     address public admin;
-    address public feeManager;
+    address public feeAdmin;
     address public feeExemptAccount;
     address public regularSender;
     address public regularRecipient;
@@ -53,7 +53,7 @@ contract TokenMiscTest is Test {
 
     function setUp() public {
         admin = address(this);
-        feeManager = address(this); // admin == feeManager for simplicity
+        feeAdmin = address(this); // admin == feeAdmin for simplicity
         feeExemptAccount = address(0xFEE00001);
         regularSender = address(0xFEE00002);
         regularRecipient = address(0xFEE00003);
@@ -71,13 +71,14 @@ contract TokenMiscTest is Test {
             feeCollectorAddr,
             INITIAL_CUSTODY_FEE,
             custodyTreasuryAddr,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         token = Token(payable(address(proxy)));
 
         // Grant operational roles (initialize only grants governance roles:
-        // DEFAULT_ADMIN, UPGRADER, FEE_MANAGER, RECOVERER)
+        // DEFAULT_ADMIN, UPGRADER, FEE_ADMIN, RECOVERER)
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), admin);
         token.grantRole(token.PAUSER_ROLE(), admin);
@@ -192,10 +193,10 @@ contract TokenMiscTest is Test {
         assertEq(token.feeCollector(), newCollector);
     }
 
-    /// @dev non-FEE_MANAGER calling setFeeCollector reverts
+    /// @dev non-FEE_ADMIN calling setFeeCollector reverts
     function test_setFeeCollector_nonFeeManagerReverts() public {
         // Read the role BEFORE the prank: the external call would consume it
-        bytes32 role = token.FEE_MANAGER_ROLE();
+        bytes32 role = token.FEE_ADMIN_ROLE();
         vm.prank(regularSender);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, regularSender, role)
@@ -423,7 +424,7 @@ contract TokenMiscTest is Test {
     // ─────────────────────────────────────────────
 
     function test_version_returnsV2() public view {
-        assertEq(token.version(), "2.3.0");
+        assertEq(token.version(), "2.4.0");
     }
 
     // ─────────────────────────────────────────────
@@ -506,16 +507,35 @@ contract TokenMiscTest is Test {
         assertEq(token.getRoleAdmin(token.PAUSER_ROLE()), defaultAdmin);
         assertEq(token.getRoleAdmin(token.FREEZER_ROLE()), defaultAdmin);
         assertEq(token.getRoleAdmin(token.BLOCKER_ROLE()), defaultAdmin);
-        assertEq(token.getRoleAdmin(token.FEE_MANAGER_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.FEE_ADMIN_ROLE()), defaultAdmin);
+        assertEq(token.getRoleAdmin(token.SWEEPER_ROLE()), defaultAdmin);
         assertEq(token.getRoleAdmin(token.RECOVERER_ROLE()), defaultAdmin);
     }
 
-    /// @dev DOCUMENTATIVO: rinunciare all'ultimo DEFAULT_ADMIN è un lockout
-    /// IRREVERSIBILE della governance (nessuno può più fare grant/revoke).
-    /// Regola operativa in AGENTS.md §16.11: mai renounce senza secondo admin.
-    function test_renounceLastAdmin_locksGovernanceIrreversibly() public {
+    /// @dev Con AccessControlDefaultAdminRules un renounce diretto di
+    /// DEFAULT_ADMIN_ROLE (senza schedule) reverta sempre: protegge da un
+    /// lockout accidentale della governance.
+    function test_renounceLastAdmin_directRenounceReverts() public {
         bytes32 adminRole = token.DEFAULT_ADMIN_ROLE();
         assertTrue(token.hasRole(adminRole, admin));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControlDefaultAdminRules.AccessControlEnforcedDefaultAdminDelay.selector, 0)
+        );
+        token.renounceRole(adminRole, admin);
+    }
+
+    /// @dev DOCUMENTATIVO: dopo lo schedule esplicito a address(0) e il delay,
+    /// il renounce va a buon fine e la governance resta IRREVERSIBILMENTE senza
+    /// DEFAULT_ADMIN_ROLE (nessuno può più fare grant/revoke né schedulare un
+    /// nuovo admin). Regola operativa in AGENTS.md §16.11: mai renounce senza
+    /// secondo admin già insediato.
+    function test_renounceLastAdmin_afterScheduledTransferToZero_locksGovernanceIrreversibly() public {
+        bytes32 adminRole = token.DEFAULT_ADMIN_ROLE();
+
+        token.beginDefaultAdminTransfer(address(0));
+        (, uint48 schedule) = token.pendingDefaultAdmin();
+        vm.warp(schedule + 1);
 
         token.renounceRole(adminRole, admin);
         assertFalse(token.hasRole(adminRole, admin));

@@ -6,6 +6,9 @@
 > **Decisioni finali (confermate dall'utente il 2026-07-06):**
 > - **D1** — Transfer fee su `transfer`/`transferFrom`: **dedotta dall'importo** (trasferisco 100, arriva il netto).
 > - **D2** — **Un solo ruolo**: `FEE_MANAGER_ROLE` (parametri fee + sweep + cicli). Nessun ruolo operatore separato.
+>   **[REVISIONATA in v2.4.0, 2026-07-11]**: split in `FEE_ADMIN_ROLE` (governance:
+>   parametri) + `SWEEPER_ROLE` (operativo: sweep/cicli) — principio del minimo
+>   privilegio, vedi PIANO_LAVORI.md §0.2/d e roles.md.
 > - **D3** — Sweep custodia: **preleva anche da holder blocked/frozen** (la custodia si paga comunque).
 > - **D4** — Fee di scambio su **tutti** i percorsi, con doppia semantica: `transfer`/`transferFrom` = netto al destinatario; **ERC-1363 ed EIP-3009 = il destinatario riceve esattamente il valore indicato, il mittente paga valore + fee** (l'allowance deve coprire il lordo). View pubbliche: `previewNet(lordo)`, `previewGross(netto)`, `maxNetTransferable(mittente)`.
 > - **D5** — Cap transfer fee: **100 bp (1%)**, azzerabile.

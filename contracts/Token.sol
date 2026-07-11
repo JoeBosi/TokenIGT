@@ -5,6 +5,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -15,12 +16,18 @@ import "./extensions/ERC20CustodyFeeUpgradeable.sol";
 import "./extensions/ERC20EIP3009Upgradeable.sol";
 import "./extensions/ERC1363PayableUpgradeable.sol";
 import "./extensions/ERC20RecoverableUpgradeable.sol";
+import "./extensions/ContractURIsUpgradeable.sol";
 
 /**
  * @title IGE Token (IGT)
  * @dev ERC-20 with UUPS upgradeability, role-based access control, pause,
  * freeze (binary), blocklist, transfer fee, periodic custody fee, EIP-2612,
  * EIP-3009, ERC-1363 and asset recovery.
+ *
+ * PEG (see PEG_ORO.md): 1 IGT = 2 grams of fine gold (Au 999.9) held in custody.
+ * `reserveInfoURI` (ContractURIsUpgradeable) points to the periodic proof-of-reserve
+ * attestations; supply is expected to satisfy totalSupply() * 2g <= attested grams
+ * (mint/burn discipline documented in PEG_ORO.md, not enforced on-chain).
  *
  * Fee semantics (see SPEC_FEE_CUSTODIA.md):
  * - `transfer`/`transferFrom`: the fee is DEDUCTED from the amount — the
@@ -35,13 +42,19 @@ import "./extensions/ERC20RecoverableUpgradeable.sol";
  *
  * Canonical order of checks on standard transfers:
  * BLOCK -> FREEZE -> FEE -> PAUSE (enforced at settlement) -> SETTLEMENT
+ *
+ * Governance (v2.4.0): DEFAULT_ADMIN_ROLE follows AccessControlDefaultAdminRules
+ * (two-step transfer with delay, see `beginDefaultAdminTransfer`/
+ * `acceptDefaultAdminTransfer`). The former FEE_MANAGER_ROLE is split into
+ * FEE_ADMIN_ROLE (governance: fee/collector/treasury setters, multisig) and
+ * SWEEPER_ROLE (operational: startNewCycle/sweepCustodyFee, hot wallet).
  */
 contract Token is
     Initializable,
     ERC20Upgradeable,
     ERC20PermitUpgradeable,
     ERC20PausableUpgradeable,
-    AccessControlUpgradeable,
+    AccessControlDefaultAdminRulesUpgradeable,
     UUPSUpgradeable,
     ERC20FreezableUpgradeable,
     ERC20BlocklistUpgradeable,
@@ -49,7 +62,8 @@ contract Token is
     ERC20CustodyFeeUpgradeable,
     ERC20EIP3009Upgradeable,
     ERC1363PayableUpgradeable,
-    ERC20RecoverableUpgradeable
+    ERC20RecoverableUpgradeable,
+    ContractURIsUpgradeable
 {
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -73,10 +87,14 @@ contract Token is
      * @param feeCollector_ Address to collect transfer fees
      * @param custodyFeeBps_ Initial custody fee in basis points (max 200)
      * @param custodyTreasury_ Address to receive custody fees
-     * @param defaultAdmin_ Address to receive DEFAULT_ADMIN_ROLE
-     * @dev Only governance roles (UPGRADER, FEE_MANAGER, RECOVERER) are granted
+     * @param defaultAdmin_ Address to receive DEFAULT_ADMIN_ROLE (governance,
+     * intended to be a multisig)
+     * @param adminTransferDelay_ Delay (seconds) enforced by
+     * AccessControlDefaultAdminRules on any future DEFAULT_ADMIN_ROLE transfer
+     * @dev Only governance roles (UPGRADER, FEE_ADMIN, RECOVERER) are granted
      * to the admin here; operational roles (MINTER, BURNER, PAUSER, FREEZER,
-     * BLOCKER) are granted post-deploy to dedicated addresses via scripts.
+     * BLOCKER, SWEEPER) are granted post-deploy to dedicated addresses via
+     * scripts (see scripts/roles/finalize_governance.ts).
      */
     function initialize(
         string memory name_,
@@ -87,7 +105,8 @@ contract Token is
         address feeCollector_,
         uint256 custodyFeeBps_,
         address custodyTreasury_,
-        address defaultAdmin_
+        address defaultAdmin_,
+        uint48 adminTransferDelay_
     ) public initializer {
         if (defaultAdmin_ == address(0)) {
             revert InvalidAdmin();
@@ -96,7 +115,7 @@ contract Token is
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
         __ERC20Pausable_init();
-        __AccessControl_init();
+        __AccessControlDefaultAdminRules_init(adminTransferDelay_, defaultAdmin_);
         __ERC20Freezable_init();
         __ERC20Blocklist_init();
         __ERC20TransferFee_init(transferFeeBps_, feeCollector_);
@@ -104,10 +123,11 @@ contract Token is
         __ERC20EIP3009_init();
         __ERC1363Payable_init();
         __ERC20Recoverable_init();
+        __ContractURIs_init();
 
-        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin_);
+        // DEFAULT_ADMIN_ROLE already granted by __AccessControlDefaultAdminRules_init above
         _grantRole(UPGRADER_ROLE, defaultAdmin_);
-        _grantRole(FEE_MANAGER_ROLE, defaultAdmin_);
+        _grantRole(FEE_ADMIN_ROLE, defaultAdmin_);
         _grantRole(RECOVERER_ROLE, defaultAdmin_);
 
         if (initialSupply_ > 0 && initialHolder_ != address(0)) {
@@ -174,7 +194,7 @@ contract Token is
      * bypasses blocklist/freeze checks — a blocked or frozen collector still
      * RECEIVES fees. Rationale: if the fee leg reverted, blocking the collector
      * would paralyze every non-exempt transfer of the token. The collector is a
-     * FEE_MANAGER-chosen address; if compromised, the remedy is
+     * FEE_ADMIN-chosen address; if compromised, the remedy is
      * setFeeCollector(new), not blocking it. Blocking it remains useful: it
      * prevents SPENDING while funds keep accruing. Consistent with D3 (custody
      * treasury). Guarded by test_policy_* in TokenFeeSemanticsTest.
@@ -263,7 +283,7 @@ contract Token is
     /**
      * @dev Custody fee collection: direct base-implementation call, bypassing
      * pause, transfer fee, blocklist and freeze (see D3 in SPEC_FEE_CUSTODIA.md).
-     * Only reachable from `sweepCustodyFee` (FEE_MANAGER_ROLE).
+     * Only reachable from `sweepCustodyFee` (SWEEPER_ROLE).
      */
     function _collectCustodyFee(address from, address to, uint256 amount) internal override {
         ERC20Upgradeable._update(from, to, amount);
@@ -335,7 +355,7 @@ contract Token is
      * @notice Contract version
      */
     function version() public pure virtual returns (string memory) {
-        return "2.3.0";
+        return "2.4.0";
     }
 
     // ========================================
@@ -355,12 +375,64 @@ contract Token is
     }
 
     /**
-     * @dev supportsInterface: ERC1363 + AccessControl (+ ERC165)
+     * @dev Diamond resolution: the other extensions (TransferFee, CustodyFee,
+     * Freezable, Blocklist, Recoverable) inherit plain AccessControlUpgradeable,
+     * while the main contract inherits AccessControlDefaultAdminRulesUpgradeable
+     * (which overrides these to enforce the two-step DEFAULT_ADMIN_ROLE
+     * transfer). Explicit overrides required by the compiler; all delegate to
+     * `super` so both layers of logic run in the correct (C3) order.
+     */
+    function _grantRole(bytes32 role, address account)
+        internal
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable)
+        returns (bool)
+    {
+        return super._grantRole(role, account);
+    }
+
+    function _revokeRole(bytes32 role, address account)
+        internal
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable)
+        returns (bool)
+    {
+        return super._revokeRole(role, account);
+    }
+
+    function _setRoleAdmin(bytes32 role, bytes32 adminRole)
+        internal
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable)
+    {
+        super._setRoleAdmin(role, adminRole);
+    }
+
+    function grantRole(bytes32 role, address account)
+        public
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable)
+    {
+        super.grantRole(role, account);
+    }
+
+    function revokeRole(bytes32 role, address account)
+        public
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable)
+    {
+        super.revokeRole(role, account);
+    }
+
+    function renounceRole(bytes32 role, address account)
+        public
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable)
+    {
+        super.renounceRole(role, account);
+    }
+
+    /**
+     * @dev supportsInterface: ERC1363 + AccessControlDefaultAdminRules (+ ERC165)
      */
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(AccessControlUpgradeable, ERC1363PayableUpgradeable)
+        override(AccessControlUpgradeable, AccessControlDefaultAdminRulesUpgradeable, ERC1363PayableUpgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

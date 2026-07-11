@@ -20,6 +20,7 @@ async function main() {
   const custodyFeeBps = process.env.CUSTODY_FEE_BASIS_POINTS || "50";
   const custodyTreasury = process.env.CUSTODY_TREASURY_ADDRESS || feeCollector;
   const defaultAdmin = process.env.DEFAULT_ADMIN_ADDRESS || deployer.address;
+  const adminTransferDelay = process.env.ADMIN_TRANSFER_DELAY_SECONDS || String(3 * 24 * 60 * 60); // 3 giorni
 
   console.log("Configuration:");
   console.log("- Name:", tokenName);
@@ -31,6 +32,7 @@ async function main() {
   console.log("- Custody Fee:", custodyFeeBps, "bps");
   console.log("- Custody Treasury:", custodyTreasury);
   console.log("- Default Admin:", defaultAdmin);
+  console.log("- Admin Transfer Delay:", adminTransferDelay, "s");
 
   const Token = await ethers.getContractFactory("Token");
   const token = await upgrades.deployProxy(
@@ -45,6 +47,7 @@ async function main() {
       custodyFeeBps,
       custodyTreasury,
       defaultAdmin,
+      adminTransferDelay,
     ],
     { kind: "uups" }
   );
@@ -87,13 +90,16 @@ async function main() {
     BURNER_ROLE: await token.BURNER_ROLE(),
     FREEZER_ROLE: await token.FREEZER_ROLE(),
     BLOCKER_ROLE: await token.BLOCKER_ROLE(),
-    FEE_MANAGER_ROLE: await token.FEE_MANAGER_ROLE(),
+    FEE_ADMIN_ROLE: await token.FEE_ADMIN_ROLE(),
+    SWEEPER_ROLE: await token.SWEEPER_ROLE(),
     RECOVERER_ROLE: await token.RECOVERER_ROLE(),
     assignments: {
       DEFAULT_ADMIN_ROLE: defaultAdmin,
       UPGRADER_ROLE: defaultAdmin,
-      FEE_MANAGER_ROLE: defaultAdmin,
+      FEE_ADMIN_ROLE: defaultAdmin,
       RECOVERER_ROLE: defaultAdmin,
+      // SWEEPER_ROLE is NOT granted by initialize() — a dedicated operational
+      // grant is required (see scripts/roles/finalize_governance.ts)
     },
   };
 
@@ -117,6 +123,7 @@ async function main() {
       custodyFeeBps,
       custodyTreasury,
       defaultAdmin,
+      adminTransferDelay,
     },
   };
 

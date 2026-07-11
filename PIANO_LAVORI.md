@@ -1,7 +1,19 @@
 # Piano lavori — TokenIGT
 
-> Aggiornato: 2026-07-08 · Branch `2026706ClaudeCode` · Token v2.3.0
+> Aggiornato: 2026-07-11 · Branch `2026706ClaudeCode` · Token v2.4.0 — **DEPLOYATO SU AMOY, TUTTO VERDE**
 > Documento di stato + pianificazione. Da rileggere all'inizio della prossima sessione.
+>
+> **Stato 2026-07-11 (fine giornata)**: v2.4.0 completamente implementato,
+> revisionato (4 agenti avversariali indipendenti: contratti, script, copertura
+> test, coerenza documenti — 1 finding medio su uno script e 2 gap di test
+> trovati e corretti) e **redeployato fresco su Amoy**
+> (proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`, verificato). 532 test
+> verdi (313 Foundry + 219 Hardhat), `forge fmt` pulito, `.gas-snapshot`
+> rigenerato, EIP-170 rispettato. Test on-chain reali (integrazione + caveaux
+> con SWEEPER_ROLE) tutti verdi — durante l'esecuzione è emerso e stato corretto
+> un bug reale in `onchain_caveaux.ts` (mancava l'auto-grant di SWEEPER_ROLE).
+> Dettaglio completo in AMOY_TEST_REPORT.md. **Resta da fare**: audit di
+> sicurezza esterno + mutation testing, poi redeploy pulito su mainnet (§6).
 
 ---
 
@@ -22,32 +34,32 @@ nomi `Mock`/`TokenV2`/`TokenV3` salvo conferma esplicita solo su testnet, valida
 lo storage layout (`validateUpgrade`), controllano il chainId e richiedono conferma
 interattiva su mainnet. Collaudati a runtime end-to-end su nodo Hardhat persistente.
 
-### 0.2 — DA DECIDERE: `FEE_MANAGER_ROLE` concentra troppo potere
-`startNewCycle()` non ha alcun vincolo di intervallo minimo on-chain (il ciclo
-"20 marzo" è solo convenzione off-chain). Lo stesso `FEE_MANAGER_ROLE` che deve
-restare su una **chiave calda** (firma centinaia di tx per lo sweep) può anche:
-aprire cicli a piacere, alzare `custodyFeeBps`/`transferFeeBps` fino al cap,
-reindirizzare `feeCollector`/`custodyTreasury` verso sé stesso. Lo sweep bypassa
-pause/freeze/blocklist by design (D3): **`pause()` NON è un rimedio se questa
-chiave è compromessa** — servirebbe `revokeRole` dall'admin (multisig, più lento).
-→ **Decisione richiesta all'utente**: vedi domande in fondo al documento.
+### 0.2 — DECISO (2026-07-11): split di `FEE_MANAGER_ROLE`, nessun cooldown on-chain
+`FEE_MANAGER_ROLE` univa l'operatività dello sweep (chiave calda, firma centinaia
+di tx) con poteri di governance (fee, collector, treasury) — una chiave compromessa
+avrebbe potuto reindirizzare i fondi, e lo sweep bypassa la pausa by design (D3),
+quindi `pause()` da solo non sarebbe bastato a fermarla.
+
+**Deciso**: split in `SWEEPER_ROLE` (operativo: `startNewCycle`+`sweepCustodyFee`,
+chiave calda) + `FEE_ADMIN_ROLE` (governance: setter bps/collector/treasury/
+esenzioni, su multisig). **Nessun `minCycleInterval` on-chain** per ora — discusso
+esplicitamente: un vincolo rigido sul giorno di calendario rischierebbe di bloccare
+lo sweep per un anno intero se il giorno esatto avesse un problema operativo
+(RPC down, gas anomalo); la cadenza resta una convenzione procedurale ("20 marzo")
+decisa da chi detiene `FEE_ADMIN_ROLE`. Riconsiderabile in futuro.
 
 ### 0.3 — Consolidamento modifiche al contratto (v2.4.0, un solo redeploy)
-Prima di mutation testing e audit esterno, congelare TUTTE le modifiche al
-sorgente in un'unica versione (altrimenti mutation/gas-baseline vanno rifatti, e
-se le modifiche arrivassero "al redeploy" DOPO l'audit, il bytecode auditato
-differirebbe da quello deployato). Elenco consolidato — **in attesa delle
-decisioni dell'utente** prima di implementare:
+**Decisioni prese dall'utente il 2026-07-11** — sblocca l'implementazione:
 
-| # | Modifica | Stato | Decisione |
-|---|---|---|---|
-| a | `ContractURIsUpgradeable` (`websiteURI`, `reserveInfoURI`) | **Spec pronta** (§E6, interfaccia esatta) | Solo conferma per procedere |
-| b | NatSpec del peg (1 IGT = 2g, da PEG_ORO.md) | Banale, zero rischio | Procedo appena sbloccato |
-| c | `version()` → `"2.4.0"` | Banale | — |
-| d | Split `FEE_MANAGER_ROLE` (es. `SWEEPER_ROLE` operativo + `FEE_ADMIN_ROLE` di governance su multisig) | Progettato, non implementato | **Serve la tua decisione (§0.2)** |
-| e | `minCycleInterval` on-chain per `startNewCycle` | Progettato, non implementato | **Serve la tua decisione (§0.2)** |
-| f | `AccessControlDefaultAdminRulesUpgradeable` (+ eventuale timelock) | Da valutare | **Serve la tua decisione** |
-| g | `contractURI()` ERC-7572 (opzionale) | Da valutare | **Serve la tua decisione** |
+| # | Modifica | Decisione |
+|---|---|---|
+| a | `ContractURIsUpgradeable` (`websiteURI`, `reserveInfoURI`) | ✅ Implementare (spec §E6) |
+| b | NatSpec del peg (1 IGT = 2g, da PEG_ORO.md) | ✅ Implementare |
+| c | `version()` → `"2.4.0"` | ✅ Implementare |
+| d | Split `FEE_MANAGER_ROLE` → `SWEEPER_ROLE` (operativo, chiave calda: `startNewCycle`+`sweepCustodyFee`) + `FEE_ADMIN_ROLE` (governance, multisig: setter bps/collector/treasury/esenzioni) | ✅ **CONFERMATO** |
+| e | `minCycleInterval` on-chain per `startNewCycle` | ❌ **NO per ora** — nessun vincolo di intervallo; resta la convenzione operativa "20 marzo". Un vincolo rigido di calendario rischierebbe di bloccare lo sweep per un anno se il giorno esatto avesse un problema operativo (RPC down, gas anomalo). Riconsiderabile in futuro. |
+| f | `AccessControlDefaultAdminRulesUpgradeable` (+ eventuale timelock) | ✅ **CONFERMATO** — protegge anche da un grantRole errato/malevolo, non solo da errori operativi |
+| g | `contractURI()` ERC-7572 | ✅ **CONFERMATO** — oltre a websiteURI/reserveInfoURI |
 
 ---
 
@@ -85,7 +97,31 @@ decisioni dell'utente** prima di implementare:
 - **Prova di SCALA sweep su Amoy** (batch grandi, throughput): rimandata alle
   specifiche aggiuntive dell'utente. La prova funzionale base è FATTA.
 - **Backup su Drive**: script pronto (`scripts/backup/backup_to_drive.sh`), non configurato.
-- **v2.4.0** (§0.3): in attesa delle decisioni di design/governance.
+
+### ✅ v2.4.0 — implementazione completata (2026-07-11)
+- Contratti: `FeeRoles.sol` (split `FEE_ADMIN_ROLE`/`SWEEPER_ROLE`),
+  `ContractURIsUpgradeable.sol` (websiteURI/reserveInfoURI/contractURI),
+  `AccessControlDefaultAdminRulesUpgradeable` integrato in `Token.sol` (diamond
+  inheritance risolta con override espliciti), `initialize` a 10 parametri,
+  `version()` → `"2.4.0"`.
+- Test: 313 Foundry (+50 vs v2.3.0: `TokenFeeRolesTest`, `TokenContractURIsTest`,
+  `TokenAdminRulesTest`, guardiano storage per il nuovo namespace) + 219 Hardhat
+  (+26: `token.feeroles`, `token.adminrules`, `token.contracturis.spec.ts`) — 530
+  totali, tutti verdi.
+- Script: `deploy_local/amoy/polygon.ts` + `.env.example` aggiornati con
+  `ADMIN_TRANSFER_DELAY_SECONDS`/`FEE_ADMIN_ADDRESS`/`SWEEPER_ADDRESS`;
+  `finalize_governance.ts` riscritto per la FASE 1 (grant/renounce ruoli
+  ordinari + `beginDefaultAdminTransfer`); nuovo `accept_governance.ts` per la
+  FASE 2; `revoke_roles.ts`/`grant_roles.ts`/`list_roles.ts` aggiornati.
+  Collaudo end-to-end completo su nodo Hardhat locale persistente (handover
+  reale simulato con un secondo account).
+- Pulizia: rimossi 2 script duplicati morti in `scripts/deploy/`
+  (`deploy_amoy_fresh_start.ts`/`deploy_amoy_test_fix.ts`, già in `archive/`).
+- `hardhat.config.ts`: `allowUnlimitedContractSize` sulla rete locale (i mock
+  TokenV2/V3, mai deployati su rete reale, hanno superato l'EIP-170 per la
+  crescita di `Token.sol` — non impatta `Token.sol` stesso, sempre sotto budget).
+- Documentazione: CLAUDE.md, roles.md, GOVERNANCE.md, RUNBOOK_SWEEP.md,
+  RUNBOOK_INCIDENT.md, AGENTS.md, API.md, CHANGELOG.md aggiornati.
 
 ---
 
@@ -273,19 +309,33 @@ Opzioni: (a) servizio Node.js custom; (b) OpenZeppelin Monitor (self-hosted);
 
 ---
 
-## 5. Domande aperte per l'utente (blocco per il code-freeze v2.4.0)
+## 5. Decisioni prese (2026-07-11) — code-freeze v2.4.0 sbloccato
 
-1. **Split del ruolo di sweep** (§0.2/d): vuoi separare un `SWEEPER_ROLE`
-   operativo (solo `startNewCycle`+`sweepCustodyFee`, su chiave calda) da un
-   `FEE_ADMIN_ROLE` di governance (setter di bps/collector/treasury/esenzioni,
-   su multisig)? Oggi è tutto unificato in `FEE_MANAGER_ROLE`.
-2. **`minCycleInterval`** (§0.2/e): vuoi un vincolo ON-CHAIN sulla frequenza
-   minima tra un `startNewCycle()` e il successivo (es. ~300 giorni), o la
-   convenzione resta solo procedurale (off-chain, come oggi)?
-3. **`AccessControlDefaultAdminRulesUpgradeable`** (+ eventuale timelock): la
-   adottiamo per il trasferimento dell'admin in due passi con delay, o teniamo
-   la protezione puramente procedurale ("mai un solo admin", AGENTS §16.11)?
-4. **`contractURI()` ERC-7572** (opzionale): interessa, come contenitore
-   standard riconosciuto da explorer/marketplace, oltre a `websiteURI`/`reserveInfoURI`?
-5. Confermi che posso procedere a implementare **E6b** (`ContractURIsUpgradeable`,
-   spec sopra) subito, indipendentemente dalle risposte 1-4?
+| # | Decisione | Esito |
+|---|---|---|
+| 1 | Split del ruolo di sweep | ✅ `SWEEPER_ROLE` (operativo) + `FEE_ADMIN_ROLE` (governance) |
+| 2 | `minCycleInterval` on-chain | ❌ No — resta procedurale (discusso: rischio di bloccare lo sweep per un anno se il vincolo fosse rigido su un giorno di calendario) |
+| 3 | `AccessControlDefaultAdminRulesUpgradeable` | ✅ Adottare |
+| 4 | `contractURI()` ERC-7572 | ✅ Aggiungere |
+
+**v2.4.0 — implementazione COMPLETATA (2026-07-11)**: ContractURIsUpgradeable
+(websiteURI, reserveInfoURI, contractURI), split ruoli, DefaultAdminRules,
+bump versione. Vedi §1 per il dettaglio (contratti, test, script, doc).
+
+## 6. Resta da fare prima del redeploy mainnet
+
+1. ✅ **Review avversariale finale** (4 agenti indipendenti: contratti, script,
+   copertura test, coerenza documenti) — FATTO 2026-07-11. 1 finding medio
+   (re-schedule silenzioso in `finalize_governance.ts`) e 2 gap di test
+   (re-schedule `beginDefaultAdminTransfer`, sopravvivenza ContractURIs/ruoli
+   a un upgrade) trovati e corretti.
+2. ✅ **Redeploy fresco su Amoy** — FATTO 2026-07-11: proxy
+   `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`, implementation verificata.
+   `onchain_integration.ts`/`onchain_caveaux.ts` rieseguiti, tutti verdi
+   (bug reale trovato e corretto: `onchain_caveaux.ts` non si autoconcedeva
+   `SWEEPER_ROLE`). Dettaglio in AMOY_TEST_REPORT.md.
+3. ✅ Aggiornati `API.md`, `DEPLOYMENT.md` con l'indirizzo del nuovo deploy
+   Amoy v2.4.0.
+4. **Prossimo**: audit di sicurezza esterno + mutation testing (§2.C), poi
+   redeploy pulito su mainnet con la coreografia di handover a due fasi
+   (GOVERNANCE.md).

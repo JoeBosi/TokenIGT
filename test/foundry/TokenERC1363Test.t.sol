@@ -103,7 +103,8 @@ contract TokenERC1363Test is Test {
             FEE_COLLECTOR,
             50, // custody fee bps (not exercised in this suite)
             CUSTODY_TREASURY,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         token = Token(payable(address(proxy)));

@@ -17,7 +17,7 @@ describe("Token - Basic Edge Cases", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -51,8 +51,8 @@ describe("Token - Basic Edge Cases", function () {
 
   describe("Fee Edge Cases", function () {
     it("Should handle zero fee", async function () {
-      // Grant FEE_MANAGER_ROLE to owner
-      await token.grantRole(await token.FEE_MANAGER_ROLE(), owner.address);
+      // Grant FEE_ADMIN_ROLE to owner
+      await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       
       await token.connect(owner).setTransferFeeBps(0);
       
@@ -63,8 +63,8 @@ describe("Token - Basic Edge Cases", function () {
     });
 
     it("Should handle maximum fee", async function () {
-      // Grant FEE_MANAGER_ROLE to owner
-      await token.grantRole(await token.FEE_MANAGER_ROLE(), owner.address);
+      // Grant FEE_ADMIN_ROLE to owner
+      await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       
       await token.connect(owner).setTransferFeeBps(100);
       
@@ -231,7 +231,7 @@ describe("Token - Basic Edge Cases", function () {
 
     it("Should handle multiple state changes", async function () {
       // Grant all required roles
-      await token.grantRole(await token.FEE_MANAGER_ROLE(), owner.address);
+      await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       await token.grantRole(await token.FREEZER_ROLE(), owner.address);
       await token.grantRole(await token.BLOCKER_ROLE(), owner.address);
       await token.grantRole(await token.PAUSER_ROLE(), owner.address);

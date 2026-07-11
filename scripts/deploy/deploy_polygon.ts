@@ -41,6 +41,7 @@ async function main() {
     CUSTODY_FEE_BASIS_POINTS: process.env.CUSTODY_FEE_BASIS_POINTS,
     CUSTODY_TREASURY_ADDRESS: process.env.CUSTODY_TREASURY_ADDRESS,
     DEFAULT_ADMIN_ADDRESS: process.env.DEFAULT_ADMIN_ADDRESS,
+    ADMIN_TRANSFER_DELAY_SECONDS: process.env.ADMIN_TRANSFER_DELAY_SECONDS,
   };
   const missing = Object.entries(required).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length > 0) {
@@ -57,10 +58,12 @@ async function main() {
     CUSTODY_FEE_BASIS_POINTS: custodyFeeBps,
     CUSTODY_TREASURY_ADDRESS: custodyTreasury,
     DEFAULT_ADMIN_ADDRESS: defaultAdmin,
+    ADMIN_TRANSFER_DELAY_SECONDS: adminTransferDelay,
   } = required as Record<string, string>;
 
   if (Number(transferFeeBps) > 100) throw new Error("TRANSFER_FEE_BASIS_POINTS > 100 (cap contrattuale)");
   if (Number(custodyFeeBps) > 200) throw new Error("CUSTODY_FEE_BASIS_POINTS > 200 (cap contrattuale)");
+  if (Number(adminTransferDelay) <= 0) throw new Error("ADMIN_TRANSFER_DELAY_SECONDS deve essere > 0 su mainnet");
   if (feeCollector.toLowerCase() === custodyTreasury.toLowerCase()) {
     console.warn("⚠️  FEE_COLLECTOR_ADDRESS == CUSTODY_TREASURY_ADDRESS: consentito ma non consigliato.");
   }
@@ -77,6 +80,7 @@ async function main() {
     custodyFeeBps,
     custodyTreasury,
     defaultAdmin,
+    adminTransferDelaySeconds: adminTransferDelay,
   });
 
   if (process.env.CONFIRM_MAINNET !== "yes") {
@@ -99,6 +103,7 @@ async function main() {
       custodyFeeBps,
       custodyTreasury,
       defaultAdmin,
+      adminTransferDelay,
     ],
     { kind: "uups" }
   );
@@ -145,6 +150,7 @@ async function main() {
           custodyFeeBps,
           custodyTreasury,
           defaultAdmin,
+          adminTransferDelay,
         },
       },
       null,

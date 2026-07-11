@@ -2,6 +2,47 @@
 
 All notable changes to the IGE Token project.
 
+## [2.4.0] - 2026-07-11 — branch 2026706ClaudeCode
+
+> BREAKING: richiede deploy fresco (nuova `initialize` a 10 parametri, nuovo
+> namespace storage `advanced.token.contracturis.storage`).
+
+### Added
+- **`ContractURIsUpgradeable`**: tre pointer informativi gestiti da
+  `DEFAULT_ADMIN_ROLE` — `websiteURI` (landing page emittente), `reserveInfoURI`
+  (pagina attestazioni proof-of-reserve, PEG_ORO.md), `contractURI` (metadata
+  ERC-7572). Nessun parametro in `initialize`: si impostano post-deploy.
+- **`AccessControlDefaultAdminRulesUpgradeable`**: `DEFAULT_ADMIN_ROLE` ora si
+  trasferisce a due fasi con delay obbligatorio (`beginDefaultAdminTransfer` →
+  attesa → `acceptDefaultAdminTransfer`); `grantRole`/`revokeRole` su
+  `DEFAULT_ADMIN_ROLE` revertono sempre, incondizionatamente. Nuovo parametro
+  `adminTransferDelay_` (10° argomento di `initialize`). Nuovo script
+  `scripts/roles/accept_governance.ts` per la FASE 2 dell'handover.
+- 48 nuovi test Foundry dedicati (`TokenFeeRolesTest`, `TokenContractURIsTest`,
+  `TokenAdminRulesTest`) + 23 Hardhat equivalenti (`token.feeroles`,
+  `token.adminrules`, `token.contracturis`) → **532 test totali** (313 Foundry +
+  219 Hardhat).
+
+### Changed
+- **Split di `FEE_MANAGER_ROLE`** (revisione della decisione D2, PIANO_LAVORI
+  §0.2/d): `FEE_ADMIN_ROLE` (governance — setter di fee/collector/treasury/
+  esenzioni) + `SWEEPER_ROLE` (operativo — `startNewCycle`/`sweepCustodyFee`).
+  Principio del minimo privilegio: una chiave operativa calda compromessa non
+  può più alterare i parametri economici del token. `FeeManagerRole.sol`
+  rimosso, sostituito da `FeeRoles.sol`.
+- `version()` → `"2.4.0"`.
+- Script `scripts/roles/finalize_governance.ts` riscritto per il flusso a due
+  fasi (grant/renounce dei ruoli ordinari + `beginDefaultAdminTransfer`, non più
+  grant+renounce diretto su `DEFAULT_ADMIN_ROLE`); `revoke_roles.ts` non accetta
+  più la revoca diretta di `DEFAULT_ADMIN_ROLE` (protezione strutturale del
+  contratto, non più solo un guard applicativo).
+- **Nessun vincolo on-chain sul cooldown dei cicli di custodia** (deciso
+  esplicitamente dall'utente, PIANO_LAVORI §0.2): resta procedurale
+  (convenzione off-chain del 20 marzo).
+
+> Nota: deploy Amoy da rifare (redeploy fresco pianificato) — nessun impatto
+> sull'implementazione v2.3.0 attualmente live fino al redeploy.
+
 ## [2.3.0] - 2026-07-07 — branch 2026706ClaudeCode
 
 ### Added

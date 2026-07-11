@@ -1,7 +1,7 @@
-# TokenIGT — Advanced ERC-20 Token (v2.3.0)
+# TokenIGT — Advanced ERC-20 Token (v2.4.0)
 
 [![CI](https://github.com/JoeBosi/TokenIGT/actions/workflows/test.yml/badge.svg)](https://github.com/JoeBosi/TokenIGT/actions/workflows/test.yml)
-![Tests](https://img.shields.io/badge/tests-454%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-530%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-Token.sol%20100%25-brightgreen)
 ![Solidity](https://img.shields.io/badge/solidity-0.8.28-blue)
 
@@ -31,8 +31,13 @@ pausa e recovery.
 - **Pausable**: pausa di emergenza (unica eccezione: lo sweep di custodia)
 - **Recovery**: recupero di ERC-20/POL(nativo)/NFT inviati per errore al contratto (SafeERC20)
 - **UUPS Upgradeable** con storage ERC-7201 conforme (verificato on-chain nei test)
-- **Access Control**: MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_MANAGER,
-  UPGRADER, RECOVERER — matrice completa in [roles.md](./roles.md)
+- **ContractURIs** (v2.4.0): `websiteURI`, `reserveInfoURI` (pointer proof-of-reserve),
+  `contractURI` (ERC-7572) — gestiti da `DEFAULT_ADMIN_ROLE`
+- **Governance a due fasi** (v2.4.0, `AccessControlDefaultAdminRulesUpgradeable`):
+  trasferimento di `DEFAULT_ADMIN_ROLE` con delay obbligatorio
+  (`beginDefaultAdminTransfer` → `acceptDefaultAdminTransfer`)
+- **Access Control**: MINTER, BURNER, PAUSER, FREEZER, BLOCKER, FEE_ADMIN,
+  SWEEPER (split v2.4.0), UPGRADER, RECOVERER — matrice completa in [roles.md](./roles.md)
 
 ## Stack
 
@@ -54,11 +59,11 @@ pausa e recovery.
 
 ## Testing
 
-**454 test, tutti passanti** (stato 2026-07-06):
+**532 test, tutti passanti** (stato 2026-07-11):
 
 ```shell
-pnpm test        # 192 test Hardhat (~6s)
-forge test       # 262 test Foundry: 
+pnpm test        # 219 test Hardhat (~6s)
+forge test       # 313 test Foundry: 
                  #   unit + fuzz + invariant (~18s)
 forge coverage   # Token.sol: 100% lines/branches; estensioni: 100% branches
 ```
@@ -72,11 +77,13 @@ somma-balance == totalSupply con sweep nel loop stateful.
 
 ```shell
 pnpm hardhat compile          # build + typechain
-forge build --sizes           # check EIP-170 (runtime ~18.7KB, margine +5.8KB)
+forge build --sizes           # check EIP-170 (runtime ~23.5KB, margine +1KB)
 
 pnpm hardhat run scripts/deploy/deploy_local.ts
 pnpm hardhat run scripts/deploy/deploy_amoy.ts --network amoy
 pnpm hardhat run scripts/roles/grant_roles.ts --network amoy
+pnpm hardhat run scripts/roles/finalize_governance.ts --network amoy   # handover FASE 1
+pnpm hardhat run scripts/roles/accept_governance.ts --network amoy    # handover FASE 2
 pnpm hardhat run scripts/deploy/verify.ts --network amoy
 ```
 

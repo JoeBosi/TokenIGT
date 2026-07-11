@@ -50,12 +50,24 @@ async function main() {
   const Token = await ethers.getContractFactory("Token");
   const token = await upgrades.deployProxy(
     Token,
-    ["IGE Token", "IGT", 0, admin.address, TRANSFER_FEE_BPS, collector.address, CUSTODY_BPS, treasury.address, admin.address],
+    [
+      "IGE Token",
+      "IGT",
+      0,
+      admin.address,
+      TRANSFER_FEE_BPS,
+      collector.address,
+      CUSTODY_BPS,
+      treasury.address,
+      admin.address,
+      3 * 24 * 60 * 60,
+    ],
     { kind: "uups" }
   );
   await token.waitForDeployment();
   await (await token.grantRole(await token.MINTER_ROLE(), admin.address)).wait();
   await (await token.grantRole(await token.PAUSER_ROLE(), admin.address)).wait();
+  await (await token.grantRole(await token.SWEEPER_ROLE(), admin.address)).wait();
   console.log(`Token deployato: ${await token.getAddress()} (v${await token.version()})`);
 
   // ── 2. Seed holder ───────────────────────────────────────────────────────

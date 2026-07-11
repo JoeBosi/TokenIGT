@@ -86,7 +86,8 @@ contract TokenFeeSemanticsTest is Test {
             feeCollector,
             custodyFeeBps_,
             custodyTreasury,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         t = Token(payable(address(proxy)));

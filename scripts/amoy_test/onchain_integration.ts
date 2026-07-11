@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 
 /**
- * TEST DI INTEGRAZIONE ON-CHAIN sul proxy Amoy live (v2.3.0).
+ * TEST DI INTEGRAZIONE ON-CHAIN sul proxy Amoy live (v2.4.0).
  * Esegue transazioni REALI contro il contratto deployato e verifica il
  * comportamento: fee netta, fee lorda (ERC-1363), freeze, block, pause, recovery
  * (con evento AssetRecovered). Un solo operatore (il deployer, DEFAULT_ADMIN che

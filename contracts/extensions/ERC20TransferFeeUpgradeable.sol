@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "./FeeManagerRole.sol";
+import "./FeeRoles.sol";
 
 /**
  * @title ERC20TransferFeeUpgradeable
@@ -19,7 +19,7 @@ import "./FeeManagerRole.sol";
  * A transfer is exempt when the sender OR the recipient is in the exemption list.
  * Uses ERC-7201 namespaced storage.
  */
-abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpgradeable, FeeManagerRole {
+abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpgradeable, FeeRoles {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @dev Hard cap for the transfer fee: 100 basis points = 1%
@@ -96,7 +96,7 @@ abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpg
     /**
      * @notice Set the transfer fee in basis points (0 to disable, max 100)
      */
-    function setTransferFeeBps(uint256 newBps) public onlyRole(FEE_MANAGER_ROLE) {
+    function setTransferFeeBps(uint256 newBps) public onlyRole(FEE_ADMIN_ROLE) {
         if (newBps > MAX_TRANSFER_FEE_BPS) {
             revert FeeExceedsMaximum(newBps, MAX_TRANSFER_FEE_BPS);
         }
@@ -110,7 +110,7 @@ abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpg
     /**
      * @notice Set the fee collector address (cannot be the zero address)
      */
-    function setFeeCollector(address newCollector) public onlyRole(FEE_MANAGER_ROLE) {
+    function setFeeCollector(address newCollector) public onlyRole(FEE_ADMIN_ROLE) {
         if (newCollector == address(0)) {
             revert InvalidFeeCollector();
         }
@@ -124,7 +124,7 @@ abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpg
     /**
      * @notice Add an account to the transfer fee exemption list (idempotent)
      */
-    function addTransferFeeExempt(address account) public onlyRole(FEE_MANAGER_ROLE) {
+    function addTransferFeeExempt(address account) public onlyRole(FEE_ADMIN_ROLE) {
         if (_getTransferFeeStorage().exempt.add(account)) {
             emit TransferFeeExemptionChanged(account, true);
         }
@@ -133,7 +133,7 @@ abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpg
     /**
      * @notice Remove an account from the transfer fee exemption list (idempotent)
      */
-    function removeTransferFeeExempt(address account) public onlyRole(FEE_MANAGER_ROLE) {
+    function removeTransferFeeExempt(address account) public onlyRole(FEE_ADMIN_ROLE) {
         if (_getTransferFeeStorage().exempt.remove(account)) {
             emit TransferFeeExemptionChanged(account, false);
         }

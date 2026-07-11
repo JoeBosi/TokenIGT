@@ -25,7 +25,8 @@ async function main() {
     "BURNER_ROLE",
     "FREEZER_ROLE",
     "BLOCKER_ROLE",
-    "FEE_MANAGER_ROLE",
+    "FEE_ADMIN_ROLE",
+    "SWEEPER_ROLE",
     "RECOVERER_ROLE",
   ];
 
@@ -58,6 +59,19 @@ async function main() {
     fromBlock,
     "— impostare FROM_BLOCK al blocco di deploy per uno storico completo."
   );
+
+  console.log("\n" + "=".repeat(50));
+  console.log("DEFAULT_ADMIN_ROLE — stato AccessControlDefaultAdminRules:");
+  console.log(`  defaultAdmin(): ${await token.defaultAdmin()}`);
+  console.log(`  defaultAdminDelay(): ${await token.defaultAdminDelay()}s`);
+  const [pendingAdmin, schedule] = await token.pendingDefaultAdmin();
+  if (pendingAdmin !== ethers.ZeroAddress) {
+    const now = Math.floor(Date.now() / 1000);
+    const status = schedule <= now ? "pronto per acceptDefaultAdminTransfer()" : `in attesa (schedule=${schedule})`;
+    console.log(`  Transfer pendente verso: ${pendingAdmin} — ${status}`);
+  } else {
+    console.log("  Nessun transfer pendente.");
+  }
 }
 
 main()

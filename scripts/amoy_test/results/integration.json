@@ -1,6 +1,6 @@
 {
-  "date": "2026-07-08T00:32:29.691Z",
-  "proxy": "0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC",
+  "date": "2026-07-11T13:28:12.863Z",
+  "proxy": "0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515",
   "results": [
     {
       "check": "transfer NETTO (destinatario riceve netto, collector +fee)",

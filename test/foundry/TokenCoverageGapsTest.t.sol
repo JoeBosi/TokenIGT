@@ -82,7 +82,8 @@ contract TokenCoverageGapsTest is Test {
             collector_,
             custodyFeeBps_,
             treasury_,
-            admin_
+            admin_,
+            3 days
         );
     }
 
@@ -92,7 +93,7 @@ contract TokenCoverageGapsTest is Test {
         UUPSProxy proxy =
             new UUPSProxy(address(impl), _initData(holder_, fee_, collector_, CUSTODY_FEE_BPS, treasury, admin));
         t = Token(payable(address(proxy)));
-        // Init grants DEFAULT_ADMIN / UPGRADER / FEE_MANAGER / RECOVERER only;
+        // Init grants DEFAULT_ADMIN / UPGRADER / FEE_ADMIN / RECOVERER only;
         // operational roles are granted here in the fixture.
         t.grantRole(t.MINTER_ROLE(), admin);
         t.grantRole(t.BURNER_ROLE(), admin);

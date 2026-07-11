@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 
 /**
- * TEST DEL CAVEAUX (custody sweep) ON-CHAIN sul proxy Amoy live (v2.3.0).
+ * TEST DEL CAVEAUX (custody sweep) ON-CHAIN sul proxy Amoy live (v2.4.0).
  * Esegue la procedura operativa VINCOLANTE del runbook con transazioni reali:
  *   pause → startNewCycle → SNAPSHOT (letture) → sweepCustodyFee → VERIFICA → unpause
  * e riconcilia l'incasso (delta treasury == Σ fee attese == Σ eventi) al wei.
@@ -19,6 +19,15 @@ async function main() {
   const [op] = await ethers.getSigners();
   const token = (await ethers.getContractAt("Token", proxy)) as unknown as Token;
   console.log(`Proxy ${proxy} · operatore ${op.address} · v${await token.version()}\n`);
+
+  // v2.4.0: startNewCycle/sweepCustodyFee richiedono SWEEPER_ROLE (split da
+  // FEE_ADMIN_ROLE, non più auto-concesso da initialize) — il deployer/admin
+  // se lo autoconcede per il test, come già fa per gli altri ruoli operativi
+  // in onchain_integration.ts
+  const sweeperRole = await token.SWEEPER_ROLE();
+  if (!(await token.hasRole(sweeperRole, op.address))) {
+    await (await token.grantRole(sweeperRole, op.address)).wait();
+  }
 
   // Treasury dedicata (≠ operatore) per misurare l'incasso in modo pulito
   const treasury = "0x000000000000000000000000000000000000FEE2";

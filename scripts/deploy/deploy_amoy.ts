@@ -28,6 +28,7 @@ async function main() {
   const custodyFeeBps = process.env.CUSTODY_FEE_BASIS_POINTS || "50";
   const custodyTreasury = process.env.CUSTODY_TREASURY_ADDRESS || feeCollector;
   const defaultAdmin = process.env.DEFAULT_ADMIN_ADDRESS || deployer.address;
+  const adminTransferDelay = process.env.ADMIN_TRANSFER_DELAY_SECONDS || String(3 * 24 * 60 * 60); // 3 giorni
 
   if (Number(transferFeeBps) > 100) throw new Error("TRANSFER_FEE_BASIS_POINTS > 100 (cap contrattuale)");
   if (Number(custodyFeeBps) > 200) throw new Error("CUSTODY_FEE_BASIS_POINTS > 200 (cap contrattuale)");
@@ -45,6 +46,7 @@ async function main() {
     custodyFeeBps,
     custodyTreasury,
     defaultAdmin,
+    adminTransferDelay,
   ];
 
   console.log("Initialize args:", initArgs);

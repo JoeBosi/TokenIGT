@@ -71,7 +71,8 @@ contract TokenRecoverableTest is Test {
             feeCollector,
             CUSTODY_FEE_BPS,
             custodyTreasury,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         token = Token(payable(address(proxy)));

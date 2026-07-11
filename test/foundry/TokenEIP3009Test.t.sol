@@ -67,13 +67,14 @@ contract TokenEIP3009Test is Test {
             feeCollector,
             CUSTODY_FEE_BPS,
             custodyTreasury,
-            admin
+            admin,
+            3 days
         );
         UUPSProxy proxy = new UUPSProxy(address(implementation), initData);
         token = Token(payable(address(proxy)));
 
         // Grant operational roles to admin for setup operations
-        // (init only grants DEFAULT_ADMIN / UPGRADER / FEE_MANAGER / RECOVERER)
+        // (init only grants DEFAULT_ADMIN / UPGRADER / FEE_ADMIN / RECOVERER)
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.PAUSER_ROLE(), admin);
         token.grantRole(token.FREEZER_ROLE(), admin);
