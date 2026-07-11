@@ -3,10 +3,10 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Deploy locale del Token v2.0.0 (UUPS proxy) per sviluppo e smoke test.
+ * Deploy locale del Token (UUPS proxy) per sviluppo e smoke test.
  */
 async function main() {
-  console.log("Deploying IGE Token v2.0.0 to local network...");
+  console.log("Deploying IGE Token to local network...");
 
   const [deployer] = await ethers.getSigners();
   console.log("Deploying with account:", deployer.address);
@@ -15,7 +15,7 @@ async function main() {
   const tokenSymbol = process.env.TOKEN_SYMBOL || "IGT";
   const initialSupply = process.env.INITIAL_SUPPLY || "10000000000000000000000"; // 10,000 tokens
   const initialHolder = process.env.INITIAL_HOLDER_ADDRESS || deployer.address;
-  const transferFeeBps = process.env.TRANSFER_FEE_BASIS_POINTS || process.env.TRANSACTION_FEE_BASIS_POINTS || "1";
+  const transferFeeBps = process.env.TRANSFER_FEE_BASIS_POINTS || "1";
   const feeCollector = process.env.FEE_COLLECTOR_ADDRESS || deployer.address;
   const custodyFeeBps = process.env.CUSTODY_FEE_BASIS_POINTS || "50";
   const custodyTreasury = process.env.CUSTODY_TREASURY_ADDRESS || feeCollector;
@@ -52,6 +52,7 @@ async function main() {
   await token.waitForDeployment();
   const tokenAddress = await token.getAddress();
   const implementationAddress = await upgrades.erc1967.getImplementationAddress(tokenAddress);
+  const deployedVersion = await token.version();
 
   console.log("\n✅ Token deployed successfully!");
   console.log("- Proxy Address:", tokenAddress);
@@ -101,7 +102,7 @@ async function main() {
   const deploymentInfo = {
     network: "local",
     chainId: (await ethers.provider.getNetwork()).chainId.toString(),
-    version: "2.0.0",
+    version: deployedVersion,
     proxy: tokenAddress,
     implementation: implementationAddress,
     deployer: deployer.address,

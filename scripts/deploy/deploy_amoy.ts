@@ -1,13 +1,20 @@
-import { ethers, upgrades } from "hardhat";
+import { ethers, upgrades, network } from "hardhat";
 import fs from "fs";
 import path from "path";
 
+const AMOY_CHAIN_ID = 80002n;
+
 /**
- * Deploy FRESCO del Token v2.0.0 su Amoy testnet (UUPS proxy).
+ * Deploy FRESCO del Token su Amoy testnet (UUPS proxy).
  * Parametri letti da .env; vedi .env.example per la lista completa.
  */
 async function main() {
-  console.log("Deploying IGE Token v2.0.0 to Amoy testnet...");
+  const chainId = (await ethers.provider.getNetwork()).chainId;
+  if (chainId !== AMOY_CHAIN_ID) {
+    throw new Error(`Rete sbagliata: connesso a chainId ${chainId}, atteso Amoy (${AMOY_CHAIN_ID})`);
+  }
+
+  console.log("Deploying IGE Token to Amoy testnet...");
 
   const [deployer] = await ethers.getSigners();
   console.log("Deployer:", deployer.address);
@@ -16,7 +23,7 @@ async function main() {
   const tokenSymbol = process.env.TOKEN_SYMBOL || "IGT";
   const initialSupply = process.env.INITIAL_SUPPLY || "10000000000000000000000";
   const initialHolder = process.env.INITIAL_HOLDER_ADDRESS || deployer.address;
-  const transferFeeBps = process.env.TRANSFER_FEE_BASIS_POINTS || process.env.TRANSACTION_FEE_BASIS_POINTS || "1";
+  const transferFeeBps = process.env.TRANSFER_FEE_BASIS_POINTS || "1";
   const feeCollector = process.env.FEE_COLLECTOR_ADDRESS || deployer.address;
   const custodyFeeBps = process.env.CUSTODY_FEE_BASIS_POINTS || "50";
   const custodyTreasury = process.env.CUSTODY_TREASURY_ADDRESS || feeCollector;
@@ -24,6 +31,9 @@ async function main() {
 
   if (Number(transferFeeBps) > 100) throw new Error("TRANSFER_FEE_BASIS_POINTS > 100 (cap contrattuale)");
   if (Number(custodyFeeBps) > 200) throw new Error("CUSTODY_FEE_BASIS_POINTS > 200 (cap contrattuale)");
+  if (feeCollector.toLowerCase() === custodyTreasury.toLowerCase()) {
+    console.warn("⚠️  FEE_COLLECTOR_ADDRESS == CUSTODY_TREASURY_ADDRESS: la fee di scambio non sarà osservabile se coincide col mittente (vedi AMOY_TEST_REPORT.md).");
+  }
 
   const initArgs = [
     tokenName,
@@ -66,11 +76,15 @@ async function main() {
   if (!fs.existsSync(abiDir)) fs.mkdirSync(abiDir, { recursive: true });
   fs.writeFileSync(path.join(abiDir, "Token.json"), JSON.stringify(TokenFactory.interface.formatJson(), null, 2));
 
+  const deployTx = token.deploymentTransaction();
+  const deployBlock = deployTx ? (await deployTx.wait())?.blockNumber : undefined;
+
   const deployInfo = {
     network: "amoy",
     chainId: 80002,
     version: deployedVersion,
     deployer: deployer.address,
+    deployBlock,
     timestamp: new Date().toISOString(),
     contracts: {
       Token: {
