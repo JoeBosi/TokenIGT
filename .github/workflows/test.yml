@@ -59,5 +59,54 @@ jobs:
       - name: Run Forge tests
         run: forge test -vvv
 
+      # E2 — Gas snapshot regression: fallisce se il gas dei test unit
+      # (deterministici: fuzz/invariant esclusi) devia oltre il 3% dalla
+      # baseline versionata (.gas-snapshot). Rigenerare la baseline con:
+      #   forge snapshot --no-match-test "(testFuzz|invariant)"
+      - name: Gas snapshot check
+        run: forge snapshot --no-match-test "(testFuzz|invariant)" --check --tolerance 3
+
       - name: Run Hardhat tests
         run: pnpm hardhat test
+
+  slither:
+    name: Slither (static analysis)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Slither
+        run: pip install slither-analyzer
+
+      # E1 — fallisce su finding di severita' MEDIUM o superiore.
+      # I finding accettati sono soppressi inline nel sorgente
+      # (slither-disable-next-line) con motivazione e riferimento all'audit.
+      - name: Run Slither
+        run: slither . --fail-medium

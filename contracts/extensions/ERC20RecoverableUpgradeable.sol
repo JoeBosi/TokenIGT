@@ -74,6 +74,9 @@ abstract contract ERC20RecoverableUpgradeable is Initializable, AccessControlUpg
             revert InvalidRecipient();
         }
 
+        // Finding Slither accettato: invio verso destinatario arbitrario, ma la
+        // funzione è gated da RECOVERER_ROLE (vedi AUDIT_INTERNO_V2.md)
+        // slither-disable-next-line arbitrary-send-eth
         (bool success,) = to.call{value: amount}("");
         if (!success) {
             revert NativeTransferFailed();
