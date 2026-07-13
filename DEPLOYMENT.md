@@ -2,23 +2,24 @@
 
 ## Current Deployments
 
-### Amoy Testnet (Active) — v2.4.0 (deploy di TEST)
+### Amoy Testnet (Active) — v2.5.0 (deploy di TEST)
 
 | Contract | Address |
 |----------|---------|
-| **Token Proxy (UUPS)** | `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515` |
-| **Implementation v2.4.0** | `0x4409cC3D3fdFC26800223A26e931CbAD333DBD05` (verificata ✅) |
+| **Token Proxy (UUPS)** | `0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0` |
+| **Implementation v2.5.0** | `0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90` (verificata ✅) |
 
 **Explorer:**
-- Proxy: https://amoy.polygonscan.com/address/0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515
-- Implementation (source verified): https://amoy.polygonscan.com/address/0x4409cC3D3fdFC26800223A26e931CbAD333DBD05#code
+- Proxy: https://amoy.polygonscan.com/address/0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0
+- Implementation (source verified): https://amoy.polygonscan.com/address/0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90#code
 
-**Deploy fresco** (2026-07-11, non upgrade — split ruoli FEE_ADMIN/SWEEPER,
-ContractURIs, AccessControlDefaultAdminRules): la v2.4.0 usa un nuovo namespace
-storage ERC-7201 (`advanced.token.contracturis.storage`) e una nuova
-`initialize` a 10 parametri — incompatibile con le istanze v2.3.x e precedenti.
+**Deploy fresco** (2026-07-13, non upgrade — fix audit strutture dati v2.5.0:
+EIP-3009 receive typehash A1 + nit A2-A5 + view). Validato on-chain (delta v2.5.0)
+in `AMOY_TEST_REPORT.md §0bis`. Deploy storici DEPRECATI: v2.4.0 proxy
+`0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`; v2.3.0
+`0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`.
 
-### Token Details (Amoy, v2.4.0 — valori di INITIALIZE)
+### Token Details (Amoy, v2.5.0 — valori di INITIALIZE)
 
 > ⚠️ Questi sono i valori di `initialize`. Il proxy è un DEPLOY DI TEST: durante
 > i test on-chain (2026-07-11) collector/treasury sono stati spostati su

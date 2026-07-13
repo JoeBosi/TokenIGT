@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 
 /**
- * TEST DI INTEGRAZIONE ON-CHAIN sul proxy Amoy live (v2.4.0).
+ * TEST DI INTEGRAZIONE ON-CHAIN sul proxy Amoy live.
  * Esegue transazioni REALI contro il contratto deployato e verifica il
  * comportamento: fee netta, fee lorda (ERC-1363), freeze, block, pause, recovery
  * (con evento AssetRecovered). Un solo operatore (il deployer, DEFAULT_ADMIN che
@@ -21,15 +21,18 @@ function record(check: string, ok: boolean, detail = "") {
 
 async function main() {
   const proxy = process.env.PROXY_ADDRESS!;
-  const [op] = await ethers.getSigners();
-  const token = (await ethers.getContractAt("Token", proxy)) as unknown as Token;
-  console.log(`Proxy ${proxy} · operatore ${op.address} · v${await token.version()}\n`);
+  const [rawOp] = await ethers.getSigners();
+  // NonceManager: gestisce il nonce localmente invece di rileggerlo (in ritardo)
+  // dall'RPC pubblico dopo ogni tx — elimina i "nonce too low" transitori.
+  const op = new ethers.NonceManager(rawOp) as unknown as typeof rawOp;
+  const token = (await ethers.getContractAt("Token", proxy, op)) as unknown as Token;
+  console.log(`Proxy ${proxy} · operatore ${rawOp.address} · v${await token.version()}\n`);
 
   // ── Setup: il deployer (admin) si concede i ruoli operativi per il test ──
   for (const r of ["MINTER_ROLE", "PAUSER_ROLE", "FREEZER_ROLE", "BLOCKER_ROLE", "BURNER_ROLE"]) {
     const role = await (token as any)[r]();
-    if (!(await token.hasRole(role, op.address))) {
-      await (await token.grantRole(role, op.address)).wait();
+    if (!(await token.hasRole(role, rawOp.address))) {
+      await (await token.grantRole(role, rawOp.address)).wait();
     }
   }
   // Il collector deve essere DIVERSO dal mittente (deployer), altrimenti la fee
@@ -46,7 +49,7 @@ async function main() {
   {
     const to = fresh();
     const v = ethers.parseEther("1000");
-    await (await token.mint(op.address, v)).wait();
+    await (await token.mint(rawOp.address, v)).wait();
     const expNet = await token.previewNet(v);
     const collBefore = await token.balanceOf(feeCollector);
     await (await token.transfer(to, v)).wait();
@@ -64,11 +67,11 @@ async function main() {
     const to = fresh();
     const v = ethers.parseEther("500");
     const need = v + (v - (await token.previewNet(v))); // v + fee
-    await (await token.mint(op.address, need)).wait();
-    const opBefore = await token.balanceOf(op.address);
+    await (await token.mint(rawOp.address, need)).wait();
+    const opBefore = await token.balanceOf(rawOp.address);
     await (await token["transferAndCall(address,uint256)"](to, v)).wait();
     const got = await token.balanceOf(to);
-    const paid = opBefore - (await token.balanceOf(op.address));
+    const paid = opBefore - (await token.balanceOf(rawOp.address));
     record(
       "transferAndCall LORDO (destinatario +v esatti, mittente paga v+fee)",
       got === v && paid === need,
@@ -87,7 +90,7 @@ async function main() {
       reverted = true;
     }
     await (await token.unfreeze(frozen)).wait();
-    await (await token.mint(op.address, ethers.parseEther("10"))).wait();
+    await (await token.mint(rawOp.address, ethers.parseEther("10"))).wait();
     await (await token.transfer(frozen, ethers.parseEther("10"))).wait();
     record("FREEZE blocca il transfer verso frozen, unfreeze ripristina", reverted && (await token.balanceOf(frozen)) > 0n);
   }

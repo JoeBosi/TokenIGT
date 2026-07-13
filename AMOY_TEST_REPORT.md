@@ -1,16 +1,47 @@
-# Report test on-chain su Amoy — Token v2.4.0
+# Report test on-chain su Amoy — Token v2.5.0
 
-> Data: 2026-07-11/12 · Rete: Amoy testnet (chainId 80002) · Deploy fresco v2.4.0
-> Metodo: gate locale (546 test) → review avversariale (4 agent: contratti, script,
-> copertura test, coerenza documenti) → deploy → verifica → integrazione on-chain →
-> caveaux → prova di scala → mutation testing (mewt, vedi MUTATION_TESTING.md)
+> Data: 2026-07-13 · Rete: Amoy testnet (chainId 80002) · Deploy fresco v2.5.0
+> Metodo: gate locale (561 test) → deploy → verifica Polygonscan → verifica on-chain
+> mirata dei fix v2.5.0.
 
-## Deployment (nuovo, v2.4.0)
+## Deployment (nuovo, v2.5.0)
 
 | | Indirizzo |
 |---|---|
-| **Proxy (UUPS)** | [`0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`](https://amoy.polygonscan.com/address/0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515) |
-| **Implementation v2.4.0** | [`0x4409cC3D3fdFC26800223A26e931CbAD333DBD05`](https://amoy.polygonscan.com/address/0x4409cC3D3fdFC26800223A26e931CbAD333DBD05#code) (verificata ✅) |
+| **Proxy (UUPS)** | [`0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0`](https://amoy.polygonscan.com/address/0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0) |
+| **Implementation v2.5.0** | [`0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90`](https://amoy.polygonscan.com/address/0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90#code) (verificata ✅) |
+
+## 0bis. Verifica on-chain dei fix v2.5.0 (il "delta" rispetto a v2.4.0)
+
+Il redeploy v2.5.0 è stato validato on-chain sul proxy live con transazioni reali
+(fee) e con `staticCall`/`eth_call` per le revert e le view (nessuna tx → immuni
+alla flakiness nonce dell'RPC pubblico):
+
+| Check | Metodo | Esito |
+|---|---|---|
+| `version() == "2.5.0"` | read | 🟢 |
+| `transfer` NETTO (fee dedotta, collector +fee) | tx reale | 🟢 (dest. 999,9 / fee 0,1) |
+| `transferAndCall` LORDO (dest. +v esatti, mittente v+fee) | tx reale | 🟢 (dest. 500 / pagato 500,05) |
+| FREEZE blocca transfer verso frozen, unfreeze ripristina | tx reale | 🟢 |
+| **A1** — firma *TransferWithAuthorization* RIFIUTATA sul percorso receive | staticCall | 🟢 `InvalidSignature` |
+| **A1** — firma *ReceiveWithAuthorization* ACCETTATA sul percorso receive | staticCall | 🟢 |
+| **A4** — `freeze(address(0))` reverta | eth_call | 🟢 `InvalidFreezeAccount` (0xc54e58ec) |
+| **A4** — `blockAccount(address(0))` reverta | eth_call | 🟢 `InvalidBlockAccount` (0xa5e202d9) |
+| `getTransferFeeExemptCount()` / `getCustodyFeeExemptCount()` presenti | read | 🟢 (view nuove v2.5.0) |
+| `isRestricted(address)` presente | read | 🟢 (view nuova v2.5.0) |
+
+> Script: `scripts/amoy_test/onchain_a1_check.ts` (A1 via staticCall). I percorsi
+> **invariati** rispetto a v2.4.0 (block/pause/recovery, custody sweep, scala) sono
+> già stati validati on-chain sul deploy v2.4.0 (sezioni 2-4 sotto) e sono coperti
+> dai 561 test locali; il bytecode delle logiche non toccate è identico.
+> Nota: il run sequenziale completo di `onchain_integration.ts` (~18 tx) resta
+> soggetto alla race del nonce dell'RPC pubblico publicnode — mitigata da un
+> `NonceManager` nello script, ma la verifica a basso numero di tx sopra è la fonte
+> autoritativa per il delta v2.5.0.
+
+---
+
+## (Sezioni 1-4 sotto: risultati on-chain del deploy v2.4.0 — paths invariati)
 
 > **Deploy di TEST** (non di produzione): durante i test la config è stata
 > modificata (feeCollector → `0x…FEE1`, custodyTreasury → `0x…FEE2`, ruoli

@@ -6,11 +6,11 @@ Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.m
 ## Contract Addresses
 
 ### Amoy Testnet
-- **v2.4.0 (attivo)**: proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515` · implementation verificata `0x4409cC3D3fdFC26800223A26e931CbAD333DBD05`
-- (v2.3.0 storico: proxy `0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`; v2.1.0:
-  proxy `0x2b307FabB36e54Fbd0257cE597D7bE277df84922`; v1.6.3: proxy
-  `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — tutti DEPRECATI, vedi
-  DEPLOYMENT.md per il dettaglio storico completo)
+- **v2.5.0 (attivo)**: proxy `0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0` · implementation verificata `0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90`
+- (storici DEPRECATI: v2.4.0 proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`;
+  v2.3.0 `0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`; v2.1.0
+  `0x2b307FabB36e54Fbd0257cE597D7bE277df84922`; v1.6.3
+  `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — vedi DEPLOYMENT.md per lo storico)
 
 ## Initialize (proxy UUPS)
 
