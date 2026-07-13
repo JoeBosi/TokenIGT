@@ -9,7 +9,7 @@ on:
 
 jobs:
   check:
-    name: Foundry project
+    name: Foundry + Hardhat
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,6 +19,31 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      # Le dipendenze Solidity (OpenZeppelin) vengono da npm: senza questo
+      # step forge non trova node_modules/@openzeppelin e la build fallisce
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Guard contro file duplicati da sync (iCloud/Finder)
+        run: |
+          ghosts=$(git ls-files | grep -E ' \([0-9]+\)' || true)
+          if [ -n "$ghosts" ]; then
+            echo "::error::File duplicati da conflitto di sincronizzazione trovati nel repo:"
+            echo "$ghosts"
+            exit 1
+          fi
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
@@ -26,10 +51,68 @@ jobs:
         run: forge --version
 
       - name: Run Forge fmt
-        run: forge fmt --check
+        run: forge fmt --check contracts/ test/foundry/
 
+      # TokenV2/V3 (contracts/mocks/) are test-only upgrade fixtures, never
+      # deployed on a real network; growth in Token.sol (v2.4.0 → v2.5.0) pushed
+      # BOTH mocks past the EIP-170 limit (they inherit Token + extra test
+      # storage). Token.sol itself stays under budget (24,082 B, margin 494) —
+      # skip the mocks from this check; they are still fully compiled and tested
+      # by `forge test` below, just not size-checked.
       - name: Run Forge build
-        run: forge build --sizes
+        run: forge build --sizes --skip "TokenV2.sol" --skip "TokenV3.sol"
 
       - name: Run Forge tests
         run: forge test -vvv
+
+      # E2 — Gas snapshot regression: fallisce se il gas dei test unit
+      # (deterministici: fuzz/invariant esclusi) devia oltre il 3% dalla
+      # baseline versionata (.gas-snapshot). Rigenerare la baseline con:
+      #   forge snapshot --no-match-test "(testFuzz|invariant)"
+      - name: Gas snapshot check
+        run: forge snapshot --no-match-test "(testFuzz|invariant)" --check --tolerance 3
+
+      - name: Run Hardhat tests
+        run: pnpm hardhat test
+
+  slither:
+    name: Slither (static analysis)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Slither
+        run: pip install slither-analyzer
+
+      # E1 — fallisce su finding di severita' MEDIUM o superiore.
+      # I finding accettati sono soppressi inline nel sorgente
+      # (slither-disable-next-line) con motivazione e riferimento all'audit.
+      - name: Run Slither
+        run: slither . --fail-medium

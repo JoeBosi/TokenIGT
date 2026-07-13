@@ -2,6 +2,206 @@
 
 All notable changes to the IGE Token project.
 
+## [2.5.0] - 2026-07-13 — branch 2026706ClaudeCode
+
+> Fix dell'audit interno delle strutture dati (`AUDIT_STRUTTURE_DATI.md`).
+> BREAKING (schema di firma EIP-3009 receive): richiede deploy fresco.
+
+### Fixed
+- **A1 (sicurezza/interop) — EIP-3009 `receiveWithAuthorization`**: usava lo stesso
+  typehash `TransferWithAuthorization` del percorso transfer. Introdotto il typehash
+  normativo distinto `ReceiveWithAuthorization`: ripristina l'interoperabilità con
+  wallet/SDK conformi e la protezione anti-front-running (una firma *receive* non è
+  più eseguibile via `transferWithAuthorization`). Nuovo errore dedicato
+  `CallerNotPayee` (era `InvalidSignature`) quando `to != msg.sender`.
+- **A2 — evento ERC-7572**: `setContractURI` emette ora ANCHE l'evento canonico
+  parameter-less `ContractURIUpdated()` (oltre a quello ricco `(prev,new)`), così gli
+  explorer/marketplace conformi rifetchano i metadati.
+- **A3 — `initialize`**: reverta `InvalidInitialHolder` se `initialSupply>0` ma
+  `initialHolder==address(0)` (prima inizializzava in silenzio a supply 0).
+- **A4 — guardia zero-address**: `freeze`/`unfreeze`/`blockAccount`/`unblockAccount`
+  revertano su `address(0)` (`InvalidFreezeAccount`/`InvalidBlockAccount`) invece di
+  emettere eventi spuri.
+- **A5 — allowance ERC-1363**: `transferFromAndCall` addebita l'allowance sul lordo
+  EFFETTIVAMENTE pagato — quando `from` è il fee collector la gamba fee è saltata e
+  l'allowance è addebitata solo `value` (prima `value+fee`, over-charge).
+
+### Added
+- `isRestricted(address)` = `isBlocked || isFrozen` (check unico per gli integratori).
+- `getTransferFeeExemptCount()` / `getCustodyFeeExemptCount()` (O(1), evitano di
+  scaricare la lista unbounded solo per conoscerne la dimensione).
+- `version()` → `"2.5.0"`. Test: **561** (335 Foundry + 226 Hardhat), tra cui 2 test
+  di sicurezza EIP-3009 (typehash non intercambiabili) e la copertura dei fix A2-A5.
+
+### Note / deferred
+- Alcune migliorie proposte dall'audit sono state **rinviate per rientrare
+  nell'EIP-170** (Token.sol a 24.082 B, margine 494): mutatori batch freeze/block,
+  view batch, preview esenzione-aware, `previewCustodyFee`, getter `…ExemptAt`
+  paginato. Sono documentate in `AUDIT_STRUTTURE_DATI.md` §4; nessuna è un bug.
+
+## [2.4.0] - 2026-07-11 — branch 2026706ClaudeCode
+
+> BREAKING: richiede deploy fresco (nuova `initialize` a 10 parametri, nuovo
+> namespace storage `advanced.token.contracturis.storage`).
+
+### Added
+- **`ContractURIsUpgradeable`**: tre pointer informativi gestiti da
+  `DEFAULT_ADMIN_ROLE` — `websiteURI` (landing page emittente), `reserveInfoURI`
+  (pagina attestazioni proof-of-reserve, PEG_ORO.md), `contractURI` (metadata
+  ERC-7572). Nessun parametro in `initialize`: si impostano post-deploy.
+- **`AccessControlDefaultAdminRulesUpgradeable`**: `DEFAULT_ADMIN_ROLE` ora si
+  trasferisce a due fasi con delay obbligatorio (`beginDefaultAdminTransfer` →
+  attesa → `acceptDefaultAdminTransfer`); `grantRole`/`revokeRole` su
+  `DEFAULT_ADMIN_ROLE` revertono sempre, incondizionatamente. Nuovo parametro
+  `adminTransferDelay_` (10° argomento di `initialize`). Nuovo script
+  `scripts/roles/accept_governance.ts` per la FASE 2 dell'handover.
+- Nuovi test Foundry dedicati (`TokenFeeRolesTest`, `TokenContractURIsTest`,
+  `TokenAdminRulesTest`) + Hardhat equivalenti (`token.feeroles`,
+  `token.adminrules`, `token.contracturis`) → **546 test totali** (327 Foundry +
+  219 Hardhat).
+- **Prova di scala dello sweep su Amoy** (`scripts/amoy_test/onchain_scale.ts`):
+  100 holder reali, batch fino a 100 in una sola tx (2,69M gas), ammortamento
+  gas confermato (55k→27k/holder), riconciliazione al wei (AMOY_TEST_REPORT.md §4).
+- **Mutation testing COMPLETO** con mewt 4.0.0 (Trail of Bits, `MUTATION_TESTING.md`):
+  917 mutanti, 855 catturati / 56 sopravvissuti / 6 skipped. I 56 sopravvissuti
+  analizzati (workflow a 6 agenti, verifica empirica): 44 mutanti equivalenti
+  documentati + **12 buchi reali della suite chiusi** con 12 nuovi test Foundry
+  (validazione firme EIP-3009, boundary temporali, selettori ERC-1363 bassi,
+  batch sweep, fee leg con collector > mittente). Mutation score 100% sui
+  mutanti non-equivalenti; nessun bug di contratto.
+
+### Changed
+- **Split di `FEE_MANAGER_ROLE`** (revisione della decisione D2, PIANO_LAVORI
+  §0.2/d): `FEE_ADMIN_ROLE` (governance — setter di fee/collector/treasury/
+  esenzioni) + `SWEEPER_ROLE` (operativo — `startNewCycle`/`sweepCustodyFee`).
+  Principio del minimo privilegio: una chiave operativa calda compromessa non
+  può più alterare i parametri economici del token. `FeeManagerRole.sol`
+  rimosso, sostituito da `FeeRoles.sol`.
+- `version()` → `"2.4.0"`.
+- Script `scripts/roles/finalize_governance.ts` riscritto per il flusso a due
+  fasi (grant/renounce dei ruoli ordinari + `beginDefaultAdminTransfer`, non più
+  grant+renounce diretto su `DEFAULT_ADMIN_ROLE`); `revoke_roles.ts` non accetta
+  più la revoca diretta di `DEFAULT_ADMIN_ROLE` (protezione strutturale del
+  contratto, non più solo un guard applicativo).
+- **Nessun vincolo on-chain sul cooldown dei cicli di custodia** (deciso
+  esplicitamente dall'utente, PIANO_LAVORI §0.2): resta procedurale
+  (convenzione off-chain del 20 marzo).
+
+> Nota: deploy Amoy da rifare (redeploy fresco pianificato) — nessun impatto
+> sull'implementazione v2.3.0 attualmente live fino al redeploy.
+
+## [2.3.0] - 2026-07-07 — branch 2026706ClaudeCode
+
+### Added
+- **Eventi di config iniziale** dagli initializer (chiude Gap 1 di AUDIT_EVENTI.md):
+  `__ERC20TransferFee_init` emette `TransferFeeUpdated(0, fee)` +
+  `FeeCollectorUpdated(0x0, collector)`; `__ERC20CustodyFee_init` emette
+  `CustodyFeeUpdated(0, fee)` + `CustodyTreasuryUpdated(0x0, treasury)`.
+  Il log off-chain è ora auto-contenuto (storia config ricostruibile dai soli
+  eventi) — utile per il sistema di monitoraggio.
+- Test `test_init_emitsInitialConfigEvents` → **454 test** (262 Foundry + 192 Hardhat).
+- `AUDIT_EVENTI.md`: audit della copertura eventi (verdetto + gap).
+
+### Changed
+- `version()` → `"2.3.0"`. Runtime bytecode 19.118 B (margine EIP-170 +5.458 B).
+- **Storage audit (`AUDIT_STORAGE.md`)** + risoluzione osservazioni: i mock
+  `TokenV2`/`TokenV3` riscritti con storage ERC-7201 namespaced (prima usavano
+  variabili plain sequenziali — sicuro ma incoerente col pattern); rimossi da
+  `scripts/upgrade/` i 5 script one-off v1 (già in `scripts/archive/`).
+  Nessun impatto sul bytecode di `Token` (i mock non sono deployati).
+
+> Nota: deploy Amoy attivo ancora v2.1.0; questi eventi saranno on-chain al redeploy.
+
+## [2.2.0] - 2026-07-07 — branch 2026706ClaudeCode
+
+### Added
+- **Evento `AssetRecovered`** in `ERC20RecoverableUpgradeable`, emesso da
+  `recoverERC20` (kind 0), `recoverNative` (kind 1, asset=0x0) e `recoverERC721`
+  (kind 2): `AssetRecovered(AssetKind indexed kind, address indexed asset,
+  address indexed to, uint256 amountOrTokenId, address executor)`. Chiude il gap
+  eventi per il futuro sistema di monitoraggio on-chain (movimenti di fondi da
+  parte del RECOVERER prima non erano tracciabili on-chain per il nativo).
+- 6 test dedicati (3 Foundry + 3 Hardhat) → **453 test totali** (261 + 192).
+
+### Changed
+- `version()` → `"2.2.0"`. Runtime bytecode 18.897 B (margine EIP-170 +5.679 B).
+
+> Nota: il deploy Amoy attivo è ancora v2.1.0 (proxy invariato); l'evento sarà
+> on-chain al prossimo redeploy/upgrade.
+
+## [2.1.0] - 2026-07-07 — branch 2026706ClaudeCode
+
+> BREAKING (rename ABI): deploy fresco su Amoy.
+
+### Changed
+- **`recoverETH` → `recoverNative`** e **`TransferFailed` → `NativeTransferFailed`**:
+  la funzione recupera la valuta nativa della chain (POL su Polygon), non ETH —
+  il vecchio nome era una convenzione ereditata da Ethereum, semanticamente
+  imprecisa per un token destinato a Polygon. NatSpec aggiornati
+  ("native currency (POL on Polygon)"). Censimento completo: nessun altro nome
+  Ethereum-centrico da correggere (ethers/parseEther = API di libreria,
+  "Etherscan API V2" = nome reale del servizio usato da Polygonscan)
+- Mock di test riallineati: TokenV2 `2.2.0-test`, TokenV3 `2.3.0-test`
+
+### Added (2026-07-06, post-2.0.0)
+- Policy collector (decisione utente): un collector blocked/frozen incassa
+  comunque le fee — la gamba fee bypassa i security check per non paralizzare
+  il token; fissata in NatSpec, AGENTS.md §8.1 e 3 test guardiani `test_policy_*`
+- 14 test di chiusura lacune: treasury frozen/blocked su sweep, batch vuoto,
+  profilo gas sweep (30.481 gas/holder), reentrancy avversariale ERC-1363,
+  replay cross-chain EIP-712, flusso gasless permit+transferFrom, holder=0,
+  getRoleAdmin, lockout ultimo admin (+regola AGENTS §16.11), upgrade non-UUPS
+- Totale test: 447 (258 Foundry + 189 Hardhat)
+
+## [2.0.0] - 2026-07-06 — branch 2026706ClaudeCode
+
+> BREAKING: richiede deploy fresco (nuovi namespace storage e nuova `initialize`).
+> Decisioni di design D1–D8 documentate in `SPEC_FEE_CUSTODIA.md`.
+
+### Added
+- **Fee di custodia on-chain** (`ERC20CustodyFeeUpgradeable`): prelievo a cicli
+  con `sweepCustodyFee(holders)` idempotente per ciclo, fee calcolata sul balance
+  al momento dell'esecuzione, cap 200 bp, treasury dedicata, esenzioni enumerabili,
+  eventi `CycleStarted`/`CustodyFeeCollected`. Lo sweep bypassa pause, transfer fee,
+  blocklist e freeze (D3) — procedura anti-elusione `pause → batch → unpause`
+- **Doppia semantica transfer fee** (D4): netta su `transfer`/`transferFrom`
+  (destinatario riceve il netto), lorda su ERC-1363/EIP-3009 (destinatario riceve
+  esattamente il valore, mittente paga valore + fee; allowance sul lordo)
+- View di preview: `previewNet`, `previewGross`, `maxNetTransferable`
+- Esenzioni transfer fee enumerabili (`getTransferFeeExemptList`)
+- Suite di test dedicate: custody, fee semantics, storage layout ERC-7201
+  (verifica on-chain via `vm.load`), matrice fee=0 (433 test totali)
+
+### Changed
+- `FEE_ADMIN_ROLE` → `FEE_MANAGER_ROLE` (unico ruolo per entrambe le fee, D2)
+- Cap transfer fee: 999 → **100 bp** (D5); API rinominata
+  (`fee()`→`transferFeeBps()`, `setFee`→`setTransferFeeBps`,
+  `addFeeFree`→`addTransferFeeExempt`, …)
+- **Freeze binario** (D6): `freeze(account)`/`unfreeze(account)`; rimossi importi
+  parziali (`freeze(addr,amt)`, `freezeAll`, `reduceFrozen`, `frozenOf`,
+  `availableBalanceOf`)
+- `ERC20RestrictedUpgradeable` → `ERC20BlocklistUpgradeable`
+  (`blockUser`/`resetUser`/`blockAddress`/`unblock` → `blockAccount`/`unblockAccount`)
+- Freeze/block/exemption idempotenti: eventi solo al cambio di stato
+- ERC-1363: interfacce ufficiali OZ; estensione rinominata `ERC1363PayableUpgradeable`
+- Recovery con SafeERC20 e `IERC721.safeTransferFrom` tipizzata
+- `TokenV2`/`TokenV3` spostati in `contracts/mocks/` (fixture di test)
+- Output Foundry separato in `out/` (i build-info condivisi corrompevano Hardhat)
+
+### Fixed
+- **Storage ERC-7201 conforme allo standard**: aggiunto il mask `& ~0xff` mancante
+  a tutti gli slot namespaced (richiede deploy fresco; test anti-regressione)
+- **Infinite allowance**: `_spendAllowance` custom rimosso — ripristinata la
+  semantica OZ (le approvazioni `type(uint256).max` non vengono più decrementate
+  né emettono `Approval` spurio a ogni `transferFrom`)
+
+### Removed
+- Intero strato monitoring/debug on-chain (D8): `healthCheck`, `emitHealthCheck`,
+  `getSystemStatus`, `isAdmin`, `debugRoles`, eventi `OperationLogged`/
+  `*OperationDebug`/`HealthCheck`/`ErrorReport`, dead code `_emitTransfer`/
+  `_emitError`. Osservabilità off-chain documentata in `MONITORING.md`
+  (−4 KB di bytecode: runtime 18,7 KB, margine EIP-170 +5,8 KB)
+
 ## [1.6.3-security-fixes] - 2025-05-18
 
 ### Security (Critical)

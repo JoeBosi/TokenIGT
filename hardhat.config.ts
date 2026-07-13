@@ -20,6 +20,12 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: 31337,
+      // TokenV2/V3 (contracts/mocks/) are test-only upgrade fixtures, never
+      // deployed on a real network; v2.4.0 growth in Token.sol pushed their
+      // combined size past the EIP-170 limit. Token.sol itself stays well
+      // under budget (see `forge build --sizes`) — amoy/polygon configs
+      // below keep the real limit enforced.
+      allowUnlimitedContractSize: true,
     },
     amoy: {
       url: process.env.AMOY_RPC_URL || "",
@@ -33,10 +39,8 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: {
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
-      polygonAmoy: process.env.POLYGONSCAN_API_KEY || "",
-    },
+    // Etherscan API V2: una sola API key per tutte le reti
+    apiKey: process.env.POLYGONSCAN_API_KEY || "",
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",

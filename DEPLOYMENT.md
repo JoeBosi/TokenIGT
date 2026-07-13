@@ -2,87 +2,102 @@
 
 ## Current Deployments
 
-### Amoy Testnet (Active) - v1.6.3-security-fixes
+### Amoy Testnet (Active) — v2.5.0 (deploy di TEST)
 
-| Contract | Address | Version |
-|----------|---------|---------|
-| **Token Proxy** | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` | 1.6.3-security-fixes |
-| **Implementation V1** | `0xeD7741db36Cf22e9D339A48e767313f33EFAb360` | 1.6.3-security-fixes |
-| **Implementation V2** | Upgraded from V1 | v2 initialized |
+| Contract | Address |
+|----------|---------|
+| **Token Proxy (UUPS)** | `0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0` |
+| **Implementation v2.5.0** | `0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90` (verificata ✅) |
 
-**Explorer Links:**
-- Proxy: https://amoy.polygonscan.com/address/0x55F7DaBE49cc7947D6ac12014Af40305176581eB
+**Explorer:**
+- Proxy: https://amoy.polygonscan.com/address/0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0
+- Implementation (source verified): https://amoy.polygonscan.com/address/0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90#code
 
-### Previous Deployment - v1.6.2-cleanup-final (Deprecated)
+**Deploy fresco** (2026-07-13, non upgrade — fix audit strutture dati v2.5.0:
+EIP-3009 receive typehash A1 + nit A2-A5 + view). Validato on-chain (delta v2.5.0)
+in `AMOY_TEST_REPORT.md §0bis`. Deploy storici DEPRECATI: v2.4.0 proxy
+`0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`; v2.3.0
+`0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`.
 
-| Contract | Address | Version |
-|----------|---------|---------|
-| **Token Proxy** | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` | 1.6.2-cleanup-final |
-| **Implementation V1** | `0xaf5c904Aab2dd9A30BF5a76b9913cBafdF218BFf` | 1.6.2-cleanup-final |
+### Token Details (Amoy, v2.5.0 — valori di INITIALIZE)
 
-**Explorer Links:**
-- Proxy: https://amoy.polygonscan.com/address/0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab
+> ⚠️ Questi sono i valori di `initialize`. Il proxy è un DEPLOY DI TEST: durante
+> i test on-chain (2026-07-11) collector/treasury sono stati spostati su
+> `0x…FEE1`/`0x…FEE2` e il ciclo custodia è stato avanzato (cycle 2) — lo stato
+> corrente NON coincide più con questi valori iniziali. Verificare sempre lo
+> stato reale con `feeCollector()`/`custodyTreasury()`/`currentCycle()` prima
+> di operare su questo proxy.
 
-**Note:** v1.6.2 had security issues (EIP-3009/ERC-1363 bypassing PAUSE/BLOCK/FREEZE). Use v1.6.3.
-
-### Token Details (Amoy)
-
-- **Name:** IGE Token
-- **Symbol:** IGT
-- **Decimals:** 18
-- **Initial Supply:** 10,000 IGT
-- **Current Supply:** ~10,062 IGT (after minting)
-- **Fee:** 10 basis points (0.1%)
-- **Fee Collector:** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
+- **Name / Symbol / Decimals:** IGE Token / IGT / 18
+- **Initial Supply:** 10.000 IGT
+- **Transfer fee:** 1 bp (0,01%) — cap on-chain 100 bp
+- **Fee collector (a initialize):** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
+- **Custody fee:** 50 bp (0,50%) — cap on-chain 200 bp
+- **Custody treasury (a initialize):** `0x2D6eCb55771f262f99F9dF8163910B1968a7862F`
+- **Current cycle (a initialize):** 1
+- **Admin transfer delay:** 259.200 s (3 giorni)
 
 ### Role Assignments (Amoy)
 
-| Role | Address | Status |
-|------|---------|--------|
-| DEFAULT_ADMIN_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` | ✅ Active |
-| UPGRADER_ROLE | `0x15CA765a1D8ce75a8B419F7A79bDe38e7AaD95E0` | ✅ Active |
-| MINTER_ROLE | `0x5366053a98f10e8cded12af53aaa6afd33a14a5a` | ✅ Active |
-| BURNER_ROLE | `0xfCb48aDbb480376089921b0A65B5022cB7EC3588` | ✅ Active |
-| PAUSER_ROLE | `0x518322969492b8e52ca5d2eb1bc6c0d2f45d5892` | ✅ Active |
-| FREEZER_ROLE | `0xf86063dDDDC0b841Ff3FBBa8a4A5E524f3D164c1` | ✅ Active |
-| BLOCKER_ROLE | `0xf86063dDDDC0b841Ff3FBBa8a4A5E524f3D164c1` | ✅ Active |
-| FEE_ADMIN_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` | ✅ Active |
-| RECOVERER_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` | ✅ Active |
+| Role | Address |
+|------|---------|
+| DEFAULT_ADMIN_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` |
+| UPGRADER_ROLE | `0x15CA765a1D8ce75a8B419F7A79bDe38e7AaD95E0` (+ admin dall'init) |
+| MINTER_ROLE | `0x5366053a98f10e8cded12af53aaa6afd33a14a5a` |
+| BURNER_ROLE | `0xfCb48aDbb480376089921b0A65B5022cB7EC3588` |
+| PAUSER_ROLE | `0x518322969492b8e52ca5d2eb1bc6c0d2f45d5892` |
+| FREEZER_ROLE | `0xf86063dDDDC0b841Ff3FBBa8a4A5E524f3D164c1` |
+| BLOCKER_ROLE | `0xf86063dDDDC0b841Ff3FBBa8a4A5E524f3D164c1` |
+| FEE_ADMIN_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` (+ admin dall'init) |
+| SWEEPER_ROLE | `0x518322969492b8e52ca5d2eb1bc6c0d2f45d5892` |
+| RECOVERER_ROLE | `0x2D6eCb55771f262f99F9dF8163910B1968a7862F` |
 
-### V2 Upgrade State
+Test on-chain v2.4.0 (2026-07-11): integrazione (fee/freeze/block/pause/recovery)
++ caveaux (sweep, con SWEEPER_ROLE) tutti verdi. Smoke test: name/symbol/version,
+supply, fee config, cycle, `previewNet`/`previewGross`/`maxNetTransferable`,
+ruoli — tutto ✅.
 
-After V1 → V2 upgrade:
-- `newVariable`: `42`
-- `newString`: `"V2 Upgrade Test"`
-- State preserved: ✅
-- All V1 functionality maintained: ✅
+### Deployment storici (DEPRECATI)
 
-## Deployment Files
+| Versione | Proxy |
+|---|---|
+| v2.3.0 | `0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC` |
+| v2.1.0 | `0x2b307FabB36e54Fbd0257cE597D7bE277df84922` |
+| v2.0.0 (recoverETH pre-rename) | `0xCbb382dd813841f501EcA35A8E2Ab82b24ba14B6` |
+| v1.6.3-security-fixes | `0x55F7DaBE49cc7947D6ac12014Af40305176581eB` |
+| v1.6.2-cleanup-final | `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` |
 
-All deployment artifacts are stored in:
-- `deployments/amoy-fresh/proxy.json`
-- `deployments/amoy-fresh/implementation.json`
-- `deployments/amoy-fresh/roles.json`
-- `deployments/amoy-fresh/test-results.json`
+## Procedura di deploy
 
-## ABI Files
+```bash
+pnpm hardhat run scripts/deploy/deploy_amoy.ts --network amoy       # deploy proxy+impl
+# aggiornare PROXY_ADDRESS / IMPLEMENTATION_ADDRESS in .env
+pnpm hardhat run scripts/roles/grant_roles.ts --network amoy        # ruoli operativi
+PROXY_ADDRESS=... pnpm hardhat run scripts/deploy/verify.ts --network amoy
+                                                                     # verifica ENTRAMBI:
+                                                                     # implementation + proxy marcato come proxy
+```
 
-Contract ABIs are available in:
-- `abi/Token.json` - Main token ABI
-- `abi/TokenV2.json` - V2 extended ABI
-- `abi/TokenV3.json` - V3 extended ABI
-- `abi/ERC1967Proxy.json` - Proxy ABI
+Per il redeploy pulito pre-mainnet (governance verso multisig), dopo il deploy:
+```bash
+GOVERNANCE_ADMIN=<safe> PROXY_ADDRESS=... \
+  pnpm hardhat run scripts/roles/finalize_governance.ts --network <rete>
+```
+Vedi la checklist completa in `PIANO_LAVORI.md` §E3.
+
+Output del deploy in `deployments/<rete>/` (`proxy.json`, `implementation.json`,
+`deploy-info.json`/`deployment.json`, `upgrade-history.json`) e ABI in `abi/Token.json`.
 
 ## Network Configuration
 
-### Amoy Testnet
-- **Chain ID:** 80002
-- **RPC URL:** https://rpc-amoy.polygon.technology
-- **Currency:** POL
-- **Block Explorer:** https://amoy.polygonscan.com
+| | Amoy Testnet | Polygon Mainnet |
+|---|---|---|
+| Chain ID | 80002 | 137 |
+| RPC | https://polygon-amoy-bor-rpc.publicnode.com | https://polygon-bor-rpc.publicnode.com |
+| Explorer | https://amoy.polygonscan.com | https://polygonscan.com |
 
-### Polygon Mainnet
-- **Chain ID:** 137
-- **RPC URL:** https://polygon-rpc.com
-- **Currency:** POL
-- **Block Explorer:** https://polygonscan.com
+> RPC ufficiali (`rpc-amoy.polygon.technology`, `polygon-rpc.com`) sono spesso
+> rate-limited (Cloudflare 1015) — vedi `AMOY_TEST_REPORT.md`. Usare publicnode.
+
+> **Mainnet**: deploy SOLO a fine sviluppo/testing, dopo audit esterno, con
+> governance su multisig (vedi AGENTS.md §3.6 e AUDIT_INTERNO_V2.md).

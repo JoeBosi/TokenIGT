@@ -1,10 +1,21 @@
-import { ethers, upgrades } from "hardhat";
+import { ethers, upgrades, network } from "hardhat";
 import fs from "fs";
 import path from "path";
 
+const AMOY_CHAIN_ID = 80002n;
+
+/**
+ * Deploy FRESCO del Token su Amoy testnet (UUPS proxy).
+ * Parametri letti da .env; vedi .env.example per la lista completa.
+ */
 async function main() {
+  const chainId = (await ethers.provider.getNetwork()).chainId;
+  if (chainId !== AMOY_CHAIN_ID) {
+    throw new Error(`Rete sbagliata: connesso a chainId ${chainId}, atteso Amoy (${AMOY_CHAIN_ID})`);
+  }
+
   console.log("Deploying IGE Token to Amoy testnet...");
-  
+
   const [deployer] = await ethers.getSigners();
   console.log("Deployer:", deployer.address);
 
@@ -12,83 +23,93 @@ async function main() {
   const tokenSymbol = process.env.TOKEN_SYMBOL || "IGT";
   const initialSupply = process.env.INITIAL_SUPPLY || "10000000000000000000000";
   const initialHolder = process.env.INITIAL_HOLDER_ADDRESS || deployer.address;
-  const initialFee = process.env.TRANSACTION_FEE_BASIS_POINTS || "10";
+  const transferFeeBps = process.env.TRANSFER_FEE_BASIS_POINTS || "1";
   const feeCollector = process.env.FEE_COLLECTOR_ADDRESS || deployer.address;
+  const custodyFeeBps = process.env.CUSTODY_FEE_BASIS_POINTS || "50";
+  const custodyTreasury = process.env.CUSTODY_TREASURY_ADDRESS || feeCollector;
   const defaultAdmin = process.env.DEFAULT_ADMIN_ADDRESS || deployer.address;
+  const adminTransferDelay = process.env.ADMIN_TRANSFER_DELAY_SECONDS || String(3 * 24 * 60 * 60); // 3 giorni
+
+  if (Number(transferFeeBps) > 100) throw new Error("TRANSFER_FEE_BASIS_POINTS > 100 (cap contrattuale)");
+  if (Number(custodyFeeBps) > 200) throw new Error("CUSTODY_FEE_BASIS_POINTS > 200 (cap contrattuale)");
+  if (feeCollector.toLowerCase() === custodyTreasury.toLowerCase()) {
+    console.warn("⚠️  FEE_COLLECTOR_ADDRESS == CUSTODY_TREASURY_ADDRESS: la fee di scambio non sarà osservabile se coincide col mittente (vedi AMOY_TEST_REPORT.md).");
+  }
+
+  const initArgs = [
+    tokenName,
+    tokenSymbol,
+    initialSupply,
+    initialHolder,
+    transferFeeBps,
+    feeCollector,
+    custodyFeeBps,
+    custodyTreasury,
+    defaultAdmin,
+    adminTransferDelay,
+  ];
+
+  console.log("Initialize args:", initArgs);
 
   const TokenFactory = await ethers.getContractFactory("Token");
-  const token = await upgrades.deployProxy(
-    TokenFactory,
-    [tokenName, tokenSymbol, initialSupply, initialHolder, initialFee, feeCollector, defaultAdmin],
-    { kind: "uups" }
-  );
+  const token = await upgrades.deployProxy(TokenFactory, initArgs, { kind: "uups" });
 
   await token.waitForDeployment();
   const tokenAddress = await token.getAddress();
   const implementationAddress = await upgrades.erc1967.getImplementationAddress(tokenAddress);
 
+  const deployedVersion = await token.version();
   console.log("Proxy:", tokenAddress);
   console.log("Implementation:", implementationAddress);
+  console.log("Version:", deployedVersion);
 
   // Save to deployments/amoy
   const deploymentsDir = path.join(__dirname, "../../deployments/amoy");
   if (!fs.existsSync(deploymentsDir)) fs.mkdirSync(deploymentsDir, { recursive: true });
 
   fs.writeFileSync(path.join(deploymentsDir, "proxy.json"), JSON.stringify({ address: tokenAddress }, null, 2));
-  fs.writeFileSync(path.join(deploymentsDir, "implementation.json"), JSON.stringify({ address: implementationAddress }, null, 2));
-
-  // Save to abi/ folder with complete deploy info
-  const abiDir = path.join(__dirname, "../../abi");
-  if (!fs.existsSync(abiDir)) fs.mkdirSync(abiDir, { recursive: true });
-
-  // Get contract artifacts for ABI
-  const TokenArtifact = await ethers.getContractFactory("Token");
-  const TokenV2Artifact = await ethers.getContractFactory("TokenV2");
-  const TokenV3Artifact = await ethers.getContractFactory("TokenV3");
+  fs.writeFileSync(
+    path.join(deploymentsDir, "implementation.json"),
+    JSON.stringify({ address: implementationAddress }, null, 2)
+  );
 
   // Save ABIs
-  fs.writeFileSync(path.join(abiDir, "Token.json"), JSON.stringify(TokenArtifact.interface.formatJson(), null, 2));
-  fs.writeFileSync(path.join(abiDir, "TokenV2.json"), JSON.stringify(TokenV2Artifact.interface.formatJson(), null, 2));
-  fs.writeFileSync(path.join(abiDir, "TokenV3.json"), JSON.stringify(TokenV3Artifact.interface.formatJson(), null, 2));
+  const abiDir = path.join(__dirname, "../../abi");
+  if (!fs.existsSync(abiDir)) fs.mkdirSync(abiDir, { recursive: true });
+  fs.writeFileSync(path.join(abiDir, "Token.json"), JSON.stringify(TokenFactory.interface.formatJson(), null, 2));
 
-  // Save ERC1967Proxy ABI from OpenZeppelin (standard proxy ABI)
-  const proxyABI = [
-    "function admin() external view returns (address)",
-    "function implementation() external view returns (address)",
-    "function upgradeTo(address newImplementation) external",
-    "function upgradeToAndCall(address newImplementation, bytes data) external payable"
-  ];
-  fs.writeFileSync(path.join(abiDir, "ERC1967Proxy.json"), JSON.stringify(proxyABI, null, 2));
+  const deployTx = token.deploymentTransaction();
+  const deployBlock = deployTx ? (await deployTx.wait())?.blockNumber : undefined;
 
-  // Save complete deploy info for Amoy
   const deployInfo = {
     network: "amoy",
     chainId: 80002,
+    version: deployedVersion,
     deployer: deployer.address,
+    deployBlock,
     timestamp: new Date().toISOString(),
     contracts: {
       Token: {
         proxy: tokenAddress,
         implementation: implementationAddress,
-        type: "UUPS"
-      }
+        type: "UUPS",
+      },
     },
-    constructorArgs: [
-      process.env.TOKEN_NAME || "IGE Token",
-      process.env.TOKEN_SYMBOL || "IGT",
-      process.env.INITIAL_SUPPLY || "10000000000000000000000",
-      process.env.INITIAL_HOLDER_ADDRESS || deployer.address,
-      process.env.TRANSACTION_FEE_BASIS_POINTS || "10",
-      process.env.FEE_COLLECTOR_ADDRESS || deployer.address,
-      process.env.DEFAULT_ADMIN_ADDRESS || deployer.address
-    ],
-    explorer: `https://amoy.polygonscan.com/address/${tokenAddress}`
+    initializeArgs: initArgs,
+    explorer: `https://amoy.polygonscan.com/address/${tokenAddress}`,
   };
 
-  fs.writeFileSync(path.join(abiDir, "deploy-amoy.json"), JSON.stringify(deployInfo, null, 2));
+  fs.writeFileSync(path.join(deploymentsDir, "deploy-info.json"), JSON.stringify(deployInfo, null, 2));
 
-  console.log("✅ Deploy info saved to abi/ folder");
+  console.log("✅ Deploy info saved to deployments/amoy/");
   console.log(`📊 Explorer: ${deployInfo.explorer}`);
+  console.log("\nProssimi passi:");
+  console.log(`  1. Aggiorna PROXY_ADDRESS=${tokenAddress} e IMPLEMENTATION_ADDRESS=${implementationAddress} in .env`);
+  console.log("  2. pnpm hardhat run scripts/roles/grant_roles.ts --network amoy");
+  console.log("  3. pnpm hardhat run scripts/deploy/verify.ts --network amoy");
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

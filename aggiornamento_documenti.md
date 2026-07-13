@@ -47,7 +47,7 @@ Questo file elenca tutti i documenti che devono essere riarmonizzati quando si m
 
 | Documento | Azione | Dettaglio |
 |-----------|--------|-----------|
-| `.env.example` | **AGGIORNARE** | `TOKEN_NAME`, `TOKEN_SYMBOL`, `INITIAL_SUPPLY`, `TRANSACTION_FEE_BASIS_POINTS`. |
+| `.env.example` | **AGGIORNARE** | `TOKEN_NAME`, `TOKEN_SYMBOL`, `INITIAL_SUPPLY`, `TRANSFER_FEE_BASIS_POINTS`, `CUSTODY_FEE_BASIS_POINTS`. |
 | `AGENTS.md` | **VERIFICARE** | Sezione 3.5 (configurazione token) - verificare valori di esempio. |
 | `README.md` | **AGGIORNARE** | Sezione "Token Parameters" con nuovi valori. |
 | `scripts/deploy/*.ts` | **VERIFICARE** | Controllare che gli script usino `.env` o abbiano valori coerenti nei commenti. |
@@ -56,7 +56,7 @@ Questo file elenca tutti i documenti che devono essere riarmonizzati quando si m
 - Cambio nome/symbol token
 - Cambio supply iniziale
 - Modifica fee basis points default
-- Cambio cap fee (max 999 bp)
+- Cambio cap fee (transfer 100 bp, custody 200 bp)
 
 ---
 

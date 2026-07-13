@@ -1,230 +1,68 @@
-# Monitoring System Documentation
+# Monitoring — Token v2.0.0
 
-## Overview
+## Approccio
 
-The IGT Token includes a comprehensive monitoring system designed for operational debugging and observability. This system provides detailed event tracking, health checks, and debug information for all critical operations.
+Dalla v2.0.0 il monitoraggio è interamente **off-chain** (decisione D8, vedi
+SPEC_FEE_CUSTODIA.md): lo strato di eventi debug on-chain della v1.x
+(`OperationLogged`, `*OperationDebug`, `HealthCheck`, `ErrorReport`) e le funzioni
+diagnostiche (`healthCheck()`, `emitHealthCheck()`, `getSystemStatus()`, `isAdmin()`,
+`debugRoles()`) sono stati **rimossi**: duplicavano informazioni già derivabili dagli
+eventi standard, gonfiavano bytecode e costavano gas a ogni operazione privilegiata.
 
-**Version:** `1.6.3-security-fixes`
+Tutto ciò che serve per l'osservabilità è negli **eventi standard e di dominio**,
+indicizzabili con qualsiasi indexer (The Graph, Ponder, script ethers/viem su
+`queryFilter`, Polygonscan API).
 
-## Architecture
+## Eventi disponibili
 
-### Event Types
+### Standard ERC-20 / OZ
+| Evento | Fonte | Uso |
+|---|---|---|
+| `Transfer(from, to, value)` | ERC20 | movimenti, mint (`from=0`), burn (`to=0`), **enumerazione holder per lo sweep** |
+| `Approval(owner, spender, value)` | ERC20 | allowance |
+| `Paused(account)` / `Unpaused(account)` | Pausable | stato pausa |
+| `RoleGranted/RoleRevoked(role, account, sender)` | AccessControl | audit trail ruoli |
+| `Upgraded(implementation)` | ERC-1967 | upgrade UUPS |
+| `Initialized(version)` | Initializable | init/reinit |
 
-The monitoring system emits three categories of events:
+### Dominio (v2.0.0)
+| Evento | Fonte | Uso |
+|---|---|---|
+| `TransferFeeUpdated(previousBps, newBps)` | TransferFee | governance fee |
+| `FeeCollectorUpdated(previous, new)` | TransferFee | governance fee |
+| `TransferFeeExemptionChanged(account, exempt)` | TransferFee | whitelist scambio |
+| `CustodyFeeUpdated(previousBps, newBps)` | CustodyFee | governance custodia |
+| `CustodyTreasuryUpdated(previous, new)` | CustodyFee | governance custodia |
+| `CustodyFeeExemptionChanged(account, exempt)` | CustodyFee | whitelist custodia |
+| `CycleStarted(cycle, timestamp)` | CustodyFee | apertura ciclo (anche all'init, cycle=1) |
+| `CustodyFeeCollected(holder, fee, cycle)` | CustodyFee | **riconciliazione sweep** |
+| `Frozen(account)` / `Unfrozen(account)` | Freezable | compliance |
+| `Blocked(account)` / `Unblocked(account)` | Blocklist | compliance |
+| `AuthorizationUsed/AuthorizationCanceled(authorizer, nonce)` | EIP-3009 | trasferimenti gasless |
 
-1. **Operation Lifecycle Events** - Track start and completion of operations
-2. **Debug Detail Events** - Provide granular operation data
-3. **System Health Events** - Monitor contract state
+## Ricette operative
 
-### Event Structure
+**Enumerazione holder per lo sweep** (input di `sweepCustodyFee`): indicizzare tutti i
+`Transfer` e mantenere il set degli indirizzi con balance > 0. Verifica di completezza
+del ciclo N: per ogni holder H del set, `lastSweptCycle(H) == N` oppure H è exempt
+(`isCustodyFeeExempt(H)`), holder == treasury, o balance*bps < 10000 (fee 0, comunque
+marcato).
 
-```solidity
-// Operation tracking
-event OperationStarted(bytes32 indexed operationId, string operationType, address executor, uint256 timestamp);
-event OperationCompleted(bytes32 indexed operationId, string operationType, address executor, bool success, uint256 timestamp);
+**Riconciliazione custodia del ciclo N**: somma dei `CustodyFeeCollected(_, fee, N)` ==
+delta balance della treasury nel periodo (al netto di altri movimenti).
 
-// Debug events for specific operations
-event MintOperationDebug(address indexed to, uint256 amount, address indexed executor, uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 timestamp);
-event BurnOperationDebug(address indexed from, uint256 amount, address indexed executor, uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 timestamp);
-event FeeOperationDebug(address indexed from, address indexed to, uint256 amount, uint256 feeAmount, address feeCollector, uint256 netValue, uint256 timestamp);
-event FreezeOperationDebug(address indexed account, uint256 frozenAmount, address indexed executor, uint256 timestamp);
-event BlockOperationDebug(address indexed account, bool blocked, uint256 timestamp);
-event PauseOperationDebug(bool paused, address indexed executor, uint256 timestamp);
-event RoleOperationDebug(bytes32 indexed role, address indexed account, bool granted, address indexed executor, uint256 timestamp);
+**Stato di salute** (sostituisce `getSystemStatus()`): letture view batch via multicall —
+`totalSupply()`, `paused()`, `transferFeeBps()`, `feeCollector()`, `custodyFeeBps()`,
+`custodyTreasury()`, `currentCycle()`, `version()`.
 
-// Health check
-event HealthCheck(uint256 indexed checkId, uint256 totalSupply, uint256 activeUsers, bool isPaused, uint256 currentFee, address feeCollector, uint256 timestamp);
+**Audit ruoli** (sostituisce `debugRoles()`): `hasRole(role, account)` per la matrice in
+`roles.md`, o ricostruzione storica da `RoleGranted`/`RoleRevoked`.
 
-// Error reporting
-event ErrorReport(bytes32 indexed operationId, string operationType, address executor, string errorMessage, uint256 timestamp);
+## Alert consigliati
 
-// State change events (v1.6.3+)
-event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount);
-event FeeUpdated(uint256 previousFee, uint256 newFee);
-event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector);
-event FeeFreeStatusChanged(address indexed account, bool isFeeFree);
-event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
-```
-
-## Usage
-
-### Reading Events
-
-#### JavaScript/TypeScript Example
-```typescript
-// Get MintOperationDebug events
-const filter = token.filters.MintOperationDebug();
-const events = await token.queryFilter(filter, fromBlock, toBlock);
-
-events.forEach(event => {
-  console.log(`Mint to: ${event.args.to}`);
-  console.log(`Amount: ${ethers.formatEther(event.args.amount)}`);
-  console.log(`Supply before: ${ethers.formatEther(event.args.totalSupplyBefore)}`);
-  console.log(`Supply after: ${ethers.formatEther(event.args.totalSupplyAfter)}`);
-});
-```
-
-### Health Check Functions
-
-#### `healthCheck()`
-Returns comprehensive system status:
-```solidity
-function healthCheck() public view returns (
-  bool success,
-  uint256 totalSupply,
-  uint256 activeUsers,
-  bool isPaused,
-  uint256 currentFee,
-  address feeCollector
-)
-```
-
-#### `getSystemStatus()`
-Returns detailed system information:
-```solidity
-function getSystemStatus() public view returns (
-  string memory contractVersion,
-  uint256 _totalSupply,
-  bool _paused,
-  uint256 _fee,
-  address _feeCollector,
-  uint256 timestamp
-)
-```
-
-#### `debugRoles(address account)`
-Returns role status for an account:
-```solidity
-function debugRoles(address account) public view returns (
-  bool admin,
-  bool minter,
-  bool burner
-)
-```
-
-#### `isAdmin(address account)`
-Quick check for admin role:
-```solidity
-function isAdmin(address account) public view returns (bool)
-```
-
-#### `emitHealthCheck()`
-Emits a HealthCheck event (for external monitoring):
-```solidity
-function emitHealthCheck() public returns (uint256 checkId)
-```
-
-### Monitoring Scripts
-
-#### Comprehensive Test with Monitoring
-```bash
-npx hardhat run scripts/test/test_amoy_fresh_comprehensive.ts --network amoy
-```
-
-This script:
-- Tests all core functions
-- Verifies event emissions
-- Validates state changes
-- Reports health status
-
-#### Debug Freeze/Block/Pause
-```bash
-npx hardhat run scripts/debug/debug_freeze_block_pause.ts --network amoy
-```
-
-## Event Signatures
-
-For filtering and decoding:
-
-```javascript
-// Event topic hashes (keccak256)
-const eventSignatures = {
-  OperationStarted: "0x...", // bytes32
-  OperationCompleted: "0x...",
-  MintOperationDebug: token.interface.getEvent("MintOperationDebug").topicHash,
-  BurnOperationDebug: token.interface.getEvent("BurnOperationDebug").topicHash,
-  FeeOperationDebug: token.interface.getEvent("FeeOperationDebug").topicHash,
-  FreezeOperationDebug: token.interface.getEvent("FreezeOperationDebug").topicHash,
-  BlockOperationDebug: token.interface.getEvent("BlockOperationDebug").topicHash,
-  PauseOperationDebug: token.interface.getEvent("PauseOperationDebug").topicHash,
-  RoleOperationDebug: token.interface.getEvent("RoleOperationDebug").topicHash,
-  HealthCheck: token.interface.getEvent("HealthCheck").topicHash,
-  ErrorReport: token.interface.getEvent("ErrorReport").topicHash,
-};
-```
-
-## Integration Examples
-
-### WebSocket Real-time Monitoring
-```javascript
-const provider = new ethers.WebSocketProvider("wss://...");
-const token = new ethers.Contract(address, abi, provider);
-
-// Listen for all mints
-token.on("MintOperationDebug", (to, amount, executor, supplyBefore, supplyAfter, timestamp, event) => {
-  console.log(`New mint: ${amount} tokens to ${to}`);
-});
-
-// Listen for health checks
-token.on("HealthCheck", (checkId, totalSupply, activeUsers, isPaused, currentFee, feeCollector, timestamp) => {
-  console.log(`Health check #${checkId}: Supply=${totalSupply}, Paused=${isPaused}`);
-});
-```
-
-### Backend Analytics
-```javascript
-// Aggregate fee data
-const feeEvents = await token.queryFilter(
-  token.filters.FeeOperationDebug(), 
-  lastBlock - 10000, 
-  'latest'
-);
-
-const totalFees = feeEvents.reduce((sum, e) => sum + e.args.feeAmount, 0n);
-console.log(`Total fees in last 10k blocks: ${ethers.formatEther(totalFees)}`);
-```
-
-### Grafana/Prometheus Integration
-```javascript
-// Export metrics
-const health = await token.healthCheck();
-metrics.gauge('token_total_supply', health.totalSupply);
-metrics.gauge('token_active_users', health.activeUsers);
-metrics.gauge('token_fee_basis_points', health.currentFee);
-metrics.gauge('token_paused', health.isPaused ? 1 : 0);
-```
-
-## Best Practices
-
-### For Operators
-1. **Regular Health Checks**: Call `emitHealthCheck()` periodically
-2. **Event Monitoring**: Subscribe to `ErrorReport` for immediate alerts
-3. **Supply Tracking**: Monitor `MintOperationDebug` and `BurnOperationDebug` for supply changes
-4. **Fee Analysis**: Track `FeeOperationDebug` to verify fee collection
-
-### For Developers
-1. **Operation IDs**: Use `_generateOperationId()` for correlation
-2. **Event Decoding**: Use the contract interface for reliable decoding
-3. **Gas Optimization**: Events are the most gas-efficient way to log data
-4. **Testing**: Always verify event emissions in tests
-
-## Troubleshooting
-
-### Events Not Found
-- Verify contract address and ABI
-- Check block range (events are only available from contract deployment block)
-- Ensure correct network connection
-
-### Health Check Failures
-- Check role assignments with `debugRoles()`
-- Verify fee collector address is valid
-- Confirm contract is not paused unexpectedly
-
-### Debug Role Issues
-```bash
-# Check if account has specific role
-npx hardhat console --network amoy
-> const token = await ethers.getContractAt("Token", "0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab");
-> const role = await token.MINTER_ROLE();
-> await token.hasRole(role, "0xYourAddress");
-```
+1. `Paused` fuori da una finestra di sweep pianificata
+2. `RoleGranted`/`RoleRevoked` su qualunque ruolo (specie DEFAULT_ADMIN/UPGRADER)
+3. `Upgraded` (qualsiasi upgrade dell'implementation)
+4. `TransferFeeUpdated`/`CustodyFeeUpdated`/`FeeCollectorUpdated`/`CustodyTreasuryUpdated`
+5. `CycleStarted` non seguito dal completamento dello sweep entro la finestra operativa
+6. Transfer di taglia anomala da/verso `feeCollector` o `custodyTreasury`

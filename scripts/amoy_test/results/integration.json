@@ -1,0 +1,36 @@
+{
+  "date": "2026-07-11T13:28:12.863Z",
+  "proxy": "0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515",
+  "results": [
+    {
+      "check": "transfer NETTO (destinatario riceve netto, collector +fee)",
+      "ok": true,
+      "detail": "destinatario 999.9 (atteso 999.9), fee 0.1"
+    },
+    {
+      "check": "transferAndCall LORDO (destinatario +v esatti, mittente paga v+fee)",
+      "ok": true,
+      "detail": "destinatario 500.0 (=v 500.0), pagato 500.05"
+    },
+    {
+      "check": "FREEZE blocca il transfer verso frozen, unfreeze ripristina",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "BLOCK blocca il transfer verso blocked, unblock ripristina",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "PAUSE blocca i transfer, unpause ripristina",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "recoverNative sposta POL ed emette AssetRecovered",
+      "ok": true,
+      "detail": "evento=true"
+    }
+  ]
+}

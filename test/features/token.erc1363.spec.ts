@@ -18,7 +18,7 @@ describe("Token - ERC-1363", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -55,21 +55,39 @@ describe("Token - ERC-1363", function () {
   describe("transferFromAndCall", function () {
     it("Should transferFrom tokens and call receiver", async function () {
       const amount = ethers.parseEther("100");
-      await token.approve(addr1.address, amount);
+      // Gross semantics: the allowance must cover value + fee (0.10% of 100 = 0.1)
+      const fee = (amount * 10n) / 10000n;
+      await token.approve(addr1.address, amount + fee);
 
       await expect(token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount))
         .to.emit(token, "Transfer")
         .to.emit(receiver, "TransferReceived");
     });
 
-    it("Should update balances and allowance correctly", async function () {
+    // NOTE: in questo spec feeCollector == owner (== from), quindi si esercita il
+    // caso A5: la gamba fee è saltata (la fee resta a `from`), perciò dal saldo di
+    // `from` esce solo `value` e l'allowance è addebitata SOLO `value` (non value+fee).
+    // Il caso "gross" con collector distinto è coperto dalla suite Foundry.
+    it("Should charge allowance only `value` when from is the fee collector (A5)", async function () {
       const amount = ethers.parseEther("100");
+      // Allowance di esattamente `value` (NON value+fee) deve bastare
       await token.approve(addr1.address, amount);
 
       await token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount);
 
       expect(await token.balanceOf(await receiver.getAddress())).to.equal(amount);
+      // from (== collector) perde solo `value`: la fee resta a lui
+      expect(await token.balanceOf(owner.address)).to.equal(INITIAL_SUPPLY - amount);
       expect(await token.allowance(owner.address, addr1.address)).to.equal(0);
+    });
+
+    it("Should revert when allowance is below the amount actually owed", async function () {
+      const amount = ethers.parseEther("100");
+      await token.approve(addr1.address, amount - 1n); // meno del dovuto
+
+      await expect(
+        token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount)
+      ).to.be.revertedWithCustomError(token, "ERC20InsufficientAllowance");
     });
   });
 

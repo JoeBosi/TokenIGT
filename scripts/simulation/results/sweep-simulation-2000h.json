@@ -1,0 +1,153 @@
+{
+  "date": "2026-07-07T06:47:50.762Z",
+  "network": "hardhat-local (in-process)",
+  "tokenVersion": "2.1.0",
+  "params": {
+    "holders": 2000,
+    "batchSize": 300,
+    "custodyBps": 50,
+    "transferFeeBps": 1
+  },
+  "checks": {
+    "pauseBlocksTransfersDuringSweep": true,
+    "allHoldersSweptCycle1": true,
+    "treasuryDeltaEqualsExpected": true,
+    "eventsSumEqualsTreasuryDelta": true,
+    "eventCount": 2000,
+    "transferFeeNotAppliedOnSweep": true,
+    "dustMarkedButIntact": true,
+    "exemptSkippedAndIntact": true,
+    "idempotentRepeatGas": "861032",
+    "spotChecks": [
+      {
+        "magnitudeIGT": "10.0",
+        "balanceAfter": "9.95",
+        "expected": "9.95",
+        "ok": true
+      },
+      {
+        "magnitudeIGT": "1000.0",
+        "balanceAfter": "995.0",
+        "expected": "995.0",
+        "ok": true
+      },
+      {
+        "magnitudeIGT": "100000.0",
+        "balanceAfter": "99500.0",
+        "expected": "99500.0",
+        "ok": true
+      },
+      {
+        "magnitudeIGT": "10000000.0",
+        "balanceAfter": "9950000.0",
+        "expected": "9950000.0",
+        "ok": true
+      }
+    ]
+  },
+  "economics": {
+    "totalCustodyCollectedIGT": "25252525.0",
+    "expectedIGT": "25252525.0"
+  },
+  "gas": {
+    "cycle1": {
+      "batches": [
+        {
+          "size": 300,
+          "gasUsed": "10564538"
+        },
+        {
+          "size": 300,
+          "gasUsed": "10550522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "10550522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "10550522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "10550522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "10550510"
+        },
+        {
+          "size": 203,
+          "gasUsed": "7082252"
+        }
+      ],
+      "perHolderAvg": 35147
+    },
+    "cycle2": {
+      "batches": [
+        {
+          "size": 300,
+          "gasUsed": "5417438"
+        },
+        {
+          "size": 300,
+          "gasUsed": "5420522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "5420522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "5420522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "5420522"
+        },
+        {
+          "size": 300,
+          "gasUsed": "5420510"
+        },
+        {
+          "size": 203,
+          "gasUsed": "3645152"
+        }
+      ],
+      "perHolderAvg": 18056
+    },
+    "model": {
+      "perHolderMarginal": 17942,
+      "txOverhead": 37530,
+      "profiledOn": [
+        {
+          "size": 10,
+          "gasUsed": "217611",
+          "perHolder": 21761.1
+        },
+        {
+          "size": 50,
+          "gasUsed": "934748",
+          "perHolder": 18694.96
+        },
+        {
+          "size": 100,
+          "gasUsed": "1831163",
+          "perHolder": 18311.63
+        },
+        {
+          "size": 250,
+          "gasUsed": "4522304",
+          "perHolder": 18089.216
+        },
+        {
+          "size": 500,
+          "gasUsed": "9008825",
+          "perHolder": 18017.65
+        }
+      ]
+    },
+    "idempotentRepeatPerHolder": 2870,
+    "sweepWallClockSeconds": 0.329
+  }
+}

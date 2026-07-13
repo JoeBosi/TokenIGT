@@ -1,199 +1,152 @@
-# IGT Token API Documentation
+# API Reference — Token v2.5.0
+
+Ruoli richiesti e matrice completa in [roles.md](./roles.md).
+Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.md).
 
 ## Contract Addresses
 
 ### Amoy Testnet
-- **Proxy:** `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab`
-- **Implementation:** `0xaf5c904Aab2dd9A30BF5a76b9913cBafdF218BFf`
+- **v2.5.0 (attivo)**: proxy `0xf162e1B87a71abb498a69a51179a9cf6F1ECc1e0` · implementation verificata `0x8FDC870CB41ceEdD2c69Fd49687730579Cf29b90`
+- (storici DEPRECATI: v2.4.0 proxy `0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515`;
+  v2.3.0 `0x479DE4c471a88c0AFdf24e9E5462555BBab03BcC`; v2.1.0
+  `0x2b307FabB36e54Fbd0257cE597D7bE277df84922`; v1.6.3
+  `0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab` — vedi DEPLOYMENT.md per lo storico)
 
-## Core Functions
+## Initialize (proxy UUPS)
 
-### Token Information
 ```solidity
-function name() public view returns (string memory)
-function symbol() public view returns (string memory)
-function decimals() public view returns (uint8)
-function totalSupply() public view returns (uint256)
-function balanceOf(address account) public view returns (uint256)
-function version() public pure returns (string memory)
+initialize(
+    string  name_,             // es. "IGE Token"
+    string  symbol_,           // es. "IGT"
+    uint256 initialSupply_,    // wei; 0 = nessun mint iniziale
+    address initialHolder_,
+    uint256 transferFeeBps_,   // 0-100 (0 = spenta) — FeeExceedsMaximum
+    address feeCollector_,     // != 0 — InvalidFeeCollector
+    uint256 custodyFeeBps_,    // 0-200 (0 = spenta) — CustodyFeeExceedsMaximum
+    address custodyTreasury_,  // != 0 — InvalidCustodyTreasury
+    address defaultAdmin_,     // != 0 — InvalidAdmin
+    uint48  adminTransferDelay_ // delay per beginDefaultAdminTransfer (v2.4.0)
+)
 ```
 
-### Transfers
-```solidity
-function transfer(address to, uint256 value) public returns (bool)
-function transferFrom(address from, address to, uint256 value) public returns (bool)
-function approve(address spender, uint256 value) public returns (bool)
-function allowance(address owner, address spender) public view returns (uint256)
-```
+> v2.5.0: se `initialSupply_ > 0` allora `initialHolder_` deve essere ≠ 0,
+> altrimenti reverta `InvalidInitialHolder` (prima inizializzava a supply 0 in silenzio).
 
-### Minting & Burning
-```solidity
-function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE)
-function burn(address from, uint256 amount) public onlyRole(BURNER_ROLE)
-```
+Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_ADMIN, RECOVERER.
+`SWEEPER_ROLE` NON è tra questi (va concesso post-deploy). Emette
+`CycleStarted(1, timestamp)`.
 
-### Pause
-```solidity
-function pause() public onlyRole(PAUSER_ROLE)
-function unpause() public onlyRole(PAUSER_ROLE)
-function paused() public view returns (bool)
-```
+## ERC-20 + supply
 
-### Freeze
-```solidity
-function freeze(address account, uint256 amount) public onlyRole(FREEZER_ROLE)
-function unfreeze(address account) public onlyRole(FREEZER_ROLE)
-function frozenOf(address account) public view returns (uint256)
-function isFrozen(address account) public view returns (bool)
-```
+| Funzione | Note |
+|---|---|
+| `transfer(to, v)` / `transferFrom(from, to, v)` | fee **dedotta**: destinatario riceve `v - fee(v)`; allowance consumata per `v`; infinite allowance mai decrementata |
+| `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
+| `mint(to, v)` | MINTER_ROLE |
+| `burn(from, v)` | BURNER_ROLE |
+| `version()` | `"2.5.0"` |
 
-### Block
-```solidity
-function blockAddress(address account) public onlyRole(BLOCKER_ROLE)
-function unblock(address account) public onlyRole(BLOCKER_ROLE)
-function isBlocked(address account) public view returns (bool)
-```
+## Transfer fee (fee di scambio)
 
-### Fee System
-```solidity
-function fee() public view returns (uint256)
-function feeCollector() public view returns (address)
-function setFee(uint256 newFee) public onlyRole(FEE_ADMIN_ROLE)
-function setFeeCollector(address newCollector) public onlyRole(FEE_ADMIN_ROLE)
-function addFeeFreeAccount(address account) public onlyRole(FEE_ADMIN_ROLE)
-function removeFeeFreeAccount(address account) public onlyRole(FEE_ADMIN_ROLE)
-function isFeeFree(address account) public view returns (bool)
-```
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `transferFeeBps()` → uint256 | view | 0–100 |
+| `setTransferFeeBps(uint256)` | FEE_ADMIN | cap `MAX_TRANSFER_FEE_BPS = 100`; evento `TransferFeeUpdated(old, new)` |
+| `feeCollector()` / `setFeeCollector(address)` | view / FEE_ADMIN | ≠0; evento `FeeCollectorUpdated` |
+| `isTransferFeeExempt(address)` / `getTransferFeeExemptList()` | view | esente se mittente O destinatario nel set |
+| `addTransferFeeExempt(a)` / `removeTransferFeeExempt(a)` | FEE_ADMIN | idempotenti; evento `TransferFeeExemptionChanged(account, exempt)` solo al cambio |
+| `getTransferFeeExemptCount()` | view | numero di esenti (O(1), v2.5.0) — evita di scaricare la lista unbounded |
+| `previewNet(gross)` | view | netto consegnato da `transfer(gross)` (parti non-esenti) |
+| `previewGross(net)` | view | minimo lordo per consegnare ≥ net via `transfer` |
+| `maxNetTransferable(sender)` | view | max `v` con `v + fee(v) ≤ balance` (percorso lordo); balance se esente/fee 0; 0 se frozen/blocked |
 
-### Role Management
-```solidity
-function hasRole(bytes32 role, address account) public view returns (bool)
-function grantRole(bytes32 role, address account) public onlyRole(DEFAULT_ADMIN_ROLE)
-function revokeRole(bytes32 role, address account) public onlyRole(DEFAULT_ADMIN_ROLE)
-function renounceRole(bytes32 role, address account) public
-```
+## Custody fee (fee di custodia)
 
-### Monitoring
-```solidity
-function healthCheck() public view returns (bool, uint256, uint256, bool, uint256, address)
-function getSystemStatus() public view returns (string memory, uint256, bool, uint256, address, uint256)
-function debugRoles(address account) public view returns (bool, bool, bool)
-function isAdmin(address account) public view returns (bool)
-function emitHealthCheck() public returns (uint256)
-```
+Parametri di governance (`FEE_ADMIN_ROLE`) separati dalle operazioni di ciclo/sweep
+(`SWEEPER_ROLE`, split v2.4.0 — principio del minimo privilegio, vedi roles.md):
 
-### EIP-3009 (Transfer With Authorization)
-```solidity
-function transferWithAuthorization(
-  address from, address to, uint256 value,
-  uint256 validAfter, uint256 validBefore, bytes32 nonce,
-  uint8 v, bytes32 r, bytes32 s
-) public
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `custodyFeeBps()` / `setCustodyFeeBps(uint256)` | view / FEE_ADMIN | cap `MAX_CUSTODY_FEE_BPS = 200`; evento `CustodyFeeUpdated` |
+| `custodyTreasury()` / `setCustodyTreasury(address)` | view / FEE_ADMIN | ≠0; evento `CustodyTreasuryUpdated` |
+| `currentCycle()` | view | parte da 1 |
+| `startNewCycle()` | SWEEPER | evento `CycleStarted(cycle, timestamp)` |
+| `lastSweptCycle(holder)` | view | 0 = mai sweepato |
+| `isCustodyFeeExempt(a)` / `getCustodyFeeExemptList()` / `getCustodyFeeExemptCount()` | view | count O(1) aggiunto in v2.5.0 |
+| `addCustodyFeeExempt(a)` / `removeCustodyFeeExempt(a)` | FEE_ADMIN | idempotenti; evento `CustodyFeeExemptionChanged` |
+| `sweepCustodyFee(address[] holders)` | SWEEPER | fee = `balance × bps / 10000` al momento; skip exempt/già sweepato/treasury/zero; **bypassa pause, transfer fee, blocklist, freeze**; evento `CustodyFeeCollected(holder, fee, cycle)` per ogni prelievo |
 
-function receiveWithAuthorization(
-  address from, address to, uint256 value,
-  uint256 validAfter, uint256 validBefore, bytes32 nonce,
-  uint8 v, bytes32 r, bytes32 s
-) public
+## Restrizioni
 
-function authorizationState(address authorizer, bytes32 nonce) public view returns (bool)
-```
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `freeze(a)` / `unfreeze(a)` / `isFrozen(a)` | FREEZER / view | binario, idempotente; eventi `Frozen`/`Unfrozen` al cambio; `a==0` reverta `InvalidFreezeAccount` (v2.5.0) |
+| `blockAccount(a)` / `unblockAccount(a)` / `isBlocked(a)` | BLOCKER / view | idempotente; eventi `Blocked`/`Unblocked` al cambio; `a==0` reverta `InvalidBlockAccount` (v2.5.0) |
+| `isRestricted(a)` | view | `isBlocked(a) || isFrozen(a)` — check unico per gli integratori (v2.5.0) |
+| `pause()` / `unpause()` / `paused()` | PAUSER / view | blocca tutti i trasferimenti TRANNE lo sweep custodia |
 
-### Permit (EIP-2612)
-```solidity
-function permit(
-  address owner, address spender, uint256 value,
-  uint256 deadline, uint8 v, bytes32 r, bytes32 s
-) public
+Ordine revert su transfer: `AccountBlocked` → `AccountFrozen` → `EnforcedPause`.
+Mint/burn esenti da block/freeze/fee (non dalla pausa).
 
-function nonces(address owner) public view returns (uint256)
-function DOMAIN_SEPARATOR() external view returns (bytes32)
-```
+## Firme off-chain
 
-## Events
+| Funzione | Note |
+|---|---|
+| `permit(owner, spender, value, deadline, v, r, s)` | EIP-2612 |
+| `nonces(owner)` / `DOMAIN_SEPARATOR()` / `eip712Domain()` | EIP-2612/5267 |
+| `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` | EIP-3009 — **lordo**: `to` riceve `value` esatti, `from` paga `value + fee`. Typehash `TransferWithAuthorization` |
+| `receiveWithAuthorization(...)` | come sopra, `to == msg.sender` obbligatorio (altrimenti `CallerNotPayee`). **Typehash DISTINTO `ReceiveWithAuthorization`** (v2.5.0): una firma receive NON è eseguibile via transfer (anti-front-running) |
+| `cancelAuthorization(authorizer, nonce, v, r, s)` | invalida un nonce |
+| `authorizationState(authorizer, nonce)` | view |
 
-### ERC-20 Standard
-```solidity
-event Transfer(address indexed from, address indexed to, uint256 value)
-event Approval(address indexed owner, address indexed spender, uint256 value)
-```
+## ERC-1363
 
-### Monitoring Events
-```solidity
-event MintOperationDebug(address indexed to, uint256 amount, address indexed executor, uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 timestamp)
-event BurnOperationDebug(address indexed from, uint256 amount, address indexed executor, uint256 totalSupplyBefore, uint256 totalSupplyAfter, uint256 timestamp)
-event FeeOperationDebug(address indexed from, address indexed to, uint256 amount, uint256 feeAmount, address feeCollector, uint256 netValue, uint256 timestamp)
-event FreezeOperationDebug(address indexed account, uint256 frozenAmount, address indexed executor, uint256 timestamp)
-event BlockOperationDebug(address indexed account, bool blocked, uint256 timestamp)
-event PauseOperationDebug(bool paused, address indexed executor, uint256 timestamp)
-event HealthCheck(uint256 indexed checkId, uint256 totalSupply, uint256 activeUsers, bool isPaused, uint256 currentFee, address feeCollector, uint256 timestamp)
-```
+| Funzione | Note |
+|---|---|
+| `transferAndCall(to, value[, data])` | **lordo**; callback `onTransferReceived` su contratti |
+| `transferFromAndCall(from, to, value[, data])` | **lordo**; l'allowance deve coprire il lordo EFFETTIVAMENTE pagato: `value + fee`, oppure solo `value` se `from` è il fee collector (fee saltata, v2.5.0) |
+| `approveAndCall(spender, value[, data])` | approve + callback `onApprovalReceived` |
+| `supportsInterface(bytes4)` | IERC1363, IAccessControl, IERC165 |
 
-### State Change Events (v1.6.3+)
-```solidity
-// Freeze events
-event Frozen(address indexed account)
-event Unfrozen(address indexed account)
-event FrozenAmountChanged(address indexed account, uint256 previousAmount, uint256 newAmount)
+## Recovery (RECOVERER_ROLE)
 
-// Fee admin events
-event FeeUpdated(uint256 previousFee, uint256 newFee)
-event FeeCollectorUpdated(address indexed previousCollector, address indexed newCollector)
-event FeeFreeStatusChanged(address indexed account, bool isFeeFree)
+| Funzione | Note |
+|---|---|
+| `recoverERC20(token, to, amount)` | SafeERC20; con `token == address(this)` passa dal percorso standard (fee+pausa); emette `AssetRecovered` |
+| `recoverNative(to, amount)` | revert `NativeTransferFailed` se la call fallisce; emette `AssetRecovered` (asset=0x0) |
+| `recoverERC721(nft, to, tokenId)` | `IERC721.safeTransferFrom`; emette `AssetRecovered` |
 
-// EIP-3009 events
-event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)
-event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce)
-```
+Evento: `AssetRecovered(AssetKind indexed kind, address indexed asset, address indexed to, uint256 amountOrTokenId, address executor)` — `kind`: 0=ERC20, 1=Native, 2=ERC721. Hook primario per il monitoraggio dei movimenti di fondi da parte del RECOVERER.
 
-### Role Events
-```solidity
-event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)
-event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)
-event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole)
-```
+## Upgrade (UPGRADER_ROLE)
 
-## Role Hashes
+| Funzione | Note |
+|---|---|
+| `upgradeToAndCall(newImplementation, data)` | UUPS; `_authorizeUpgrade` gated dal ruolo |
 
-```javascript
-const ROLES = {
-  DEFAULT_ADMIN_ROLE: "0x0000000000000000000000000000000000000000000000000000000000000000",
-  UPGRADER_ROLE: keccak256("UPGRADER_ROLE"),
-  MINTER_ROLE: keccak256("MINTER_ROLE"),
-  BURNER_ROLE: keccak256("BURNER_ROLE"),
-  PAUSER_ROLE: keccak256("PAUSER_ROLE"),
-  FREEZER_ROLE: keccak256("FREEZER_ROLE"),
-  BLOCKER_ROLE: keccak256("BLOCKER_ROLE"),
-  FEE_ADMIN_ROLE: keccak256("FEE_ADMIN_ROLE"),
-  RECOVERER_ROLE: keccak256("RECOVERER_ROLE"),
-}
-```
+## ContractURIs (v2.4.0) — pointer informativi, DEFAULT_ADMIN_ROLE
 
-## ABI Files
+| Funzione | Note |
+|---|---|
+| `websiteURI()` / `setWebsiteURI(string)` | landing page ufficiale dell'emittente; evento `WebsiteURIUpdated(prev, new)` |
+| `reserveInfoURI()` / `setReserveInfoURI(string)` | pagina attestazioni proof-of-reserve (PEG_ORO.md) — pointer, non prova; evento `ReserveInfoURIUpdated(prev, new)` |
+| `contractURI()` / `setContractURI(string)` | metadata a livello contratto (ERC-7572); emette `ContractURIUpdated(prev, new)` **e** l'evento canonico parameter-less `ContractURIUpdated()` (v2.5.0) per il refresh degli explorer conformi |
 
-Available in `abi/` directory:
-- `Token.json` - Main token ABI
-- `TokenV2.json` - V2 extended ABI
-- `ERC1967Proxy.json` - Proxy ABI
+Tutti i setter richiedono `DEFAULT_ADMIN_ROLE`, non `FEE_ADMIN`/`SWEEPER` —
+`reserveInfoURI` è l'ancora di fiducia del token.
 
-## Usage Example
+## Governance handover (v2.4.0, AccessControlDefaultAdminRules)
 
-```typescript
-import { ethers } from "ethers";
-import TokenABI from "./abi/Token.json";
+Il transfer di `DEFAULT_ADMIN_ROLE` è a due fasi con delay obbligatorio —
+`grantRole`/`revokeRole` su `DEFAULT_ADMIN_ROLE` **revertono sempre**:
 
-const provider = new ethers.JsonRpcProvider("https://rpc-amoy.polygon.technology");
-const token = new ethers.Contract(
-  "0x0A06Bad41D08c4634a05a45b8709A32552B1A0ab",
-  TokenABI.abi,
-  provider
-);
+| Funzione | Ruolo | Note |
+|---|---|---|
+| `beginDefaultAdminTransfer(address newAdmin)` | DEFAULT_ADMIN | schedula il transfer; evento `DefaultAdminTransferScheduled(newAdmin, schedule)` |
+| `acceptDefaultAdminTransfer()` | admin pendente | completa l'handover dopo il delay; reverta con `AccessControlInvalidDefaultAdmin`/`AccessControlEnforcedDefaultAdminDelay` se il chiamante o il timing sono sbagliati |
+| `cancelDefaultAdminTransfer()` | DEFAULT_ADMIN | annulla il transfer schedulato; evento `DefaultAdminTransferCanceled()` |
+| `changeDefaultAdminDelay(uint48)` / `rollbackDefaultAdminDelay()` | DEFAULT_ADMIN | ricalibra il delay stesso (con la propria finestra di sicurezza) |
+| `owner()` / `defaultAdmin()` / `pendingDefaultAdmin()` / `defaultAdminDelay()` / `pendingDefaultAdminDelay()` | view | stato corrente/pendente |
 
-// Read balance
-const balance = await token.balanceOf("0x...");
-console.log(ethers.formatEther(balance));
-
-// Check if address is blocked
-const blocked = await token.isBlocked("0x...");
-console.log("Blocked:", blocked);
-```
+Vedi GOVERNANCE.md per la coreografia operativa completa
+(`scripts/roles/finalize_governance.ts` + `scripts/roles/accept_governance.ts`).

@@ -1,0 +1,51 @@
+{
+  "date": "2026-07-11T13:29:08.130Z",
+  "proxy": "0x8B4aFEd36CbD8418E2e4bc34E71b20433Ecb7515",
+  "cycle": "2",
+  "custodyBps": 50,
+  "holders": 6,
+  "totalCollected": "505.08634",
+  "expectedTotal": "505.08634",
+  "gasPerHolder": 55430,
+  "sweepTx": "0x9b303a21d0776f0d1a69db31429e5edbbb0a5de111fbc4d9736c142cbd8ceb95",
+  "checks": {
+    "pauseBlocksTransfers": true,
+    "allHoldersSwept": true,
+    "treasuryDeltaEqualsExpected": true,
+    "eventsSumEqualsDelta": true,
+    "dustFeeIsZero": true,
+    "unpaused": true
+  },
+  "spot": [
+    {
+      "holderBalance": "8.609",
+      "expectedFee": "0.043045",
+      "ok": true
+    },
+    {
+      "holderBalance": "8.609",
+      "expectedFee": "0.043045",
+      "ok": true
+    },
+    {
+      "holderBalance": "1000.0",
+      "expectedFee": "5.0",
+      "ok": true
+    },
+    {
+      "holderBalance": "100000.0",
+      "expectedFee": "500.0",
+      "ok": true
+    },
+    {
+      "holderBalance": "0.05",
+      "expectedFee": "0.00025",
+      "ok": true
+    },
+    {
+      "holderBalance": "0.000000000000000199",
+      "expectedFee": "0.0",
+      "ok": true
+    }
+  ]
+}

@@ -12,10 +12,9 @@ import "../interfaces/IERC3009.sol";
  * Uses ERC-7201 namespaced storage pattern
  */
 abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, IERC3009 {
-    // ERC-7201 namespace: advanced.token.eip3009
-    bytes32 private constant STORAGE_LOCATION = keccak256(
-        abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1)
-    );
+    /// @dev keccak256(abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant EIP3009_STORAGE_LOCATION =
+        0xe281c9e49b595b8ea7184e0675358c21ea63e763a0426bf5fc042fef0860fb00;
 
     /// @custom:storage-location erc7201:advanced.token.eip3009.storage
     struct EIP3009Storage {
@@ -27,11 +26,21 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     error AuthorizationExpired();
     error AuthorizationNotYetValid();
     error InvalidNonce();
+    /// @dev receiveWithAuthorization called by an address other than the payee `to`
+    error CallerNotPayee();
 
-    bytes32 private constant TYPE_HASH =
-        keccak256(
-            "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
-        );
+    /// @dev EIP-3009 canonical typehash for the transfer flow
+    bytes32 private constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak256(
+        "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
+    );
+
+    /// @dev EIP-3009 canonical typehash for the receive flow. MUST be distinct
+    /// from the transfer one: it is what makes the `to == msg.sender` guard of
+    /// receiveWithAuthorization an actual anti-front-running protection (a receive
+    /// signature must NOT be executable via transferWithAuthorization).
+    bytes32 private constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = keccak256(
+        "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
+    );
 
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
     event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
@@ -65,13 +74,15 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         bytes32 r,
         bytes32 s
     ) public {
-        _validateAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s);
-        
+        _validateAuthorization(
+            TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce, v, r, s
+        );
+
         EIP3009Storage storage $ = _getEIP3009Storage();
         $.authorizationState[from][nonce] = true;
-        
+
         emit AuthorizationUsed(from, nonce);
-        
+
         _executeTransfer(from, to, value);
     }
 
@@ -99,16 +110,18 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         bytes32 s
     ) public {
         if (to != msg.sender) {
-            revert InvalidSignature();
+            revert CallerNotPayee();
         }
-        
-        _validateAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s);
-        
+
+        _validateAuthorization(
+            RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce, v, r, s
+        );
+
         EIP3009Storage storage $ = _getEIP3009Storage();
         $.authorizationState[from][nonce] = true;
-        
+
         emit AuthorizationUsed(from, nonce);
-        
+
         _executeTransfer(from, to, value);
     }
 
@@ -120,19 +133,9 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
      * @param r The signature output r
      * @param s The signature output s
      */
-    function cancelAuthorization(
-        address authorizer,
-        bytes32 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public {
+    function cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) public {
         bytes32 structHash = keccak256(
-            abi.encode(
-                keccak256("CancelAuthorization(address authorizer,bytes32 nonce)"),
-                authorizer,
-                nonce
-            )
+            abi.encode(keccak256("CancelAuthorization(address authorizer,bytes32 nonce)"), authorizer, nonce)
         );
 
         bytes32 hash = _hashTypedDataV4(structHash);
@@ -163,6 +166,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     }
 
     function _validateAuthorization(
+        bytes32 typeHash,
         address from,
         address to,
         uint256 value,
@@ -173,9 +177,7 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
         bytes32 r,
         bytes32 s
     ) private {
-        bytes32 structHash = keccak256(
-            abi.encode(TYPE_HASH, from, to, value, validAfter, validBefore, nonce)
-        );
+        bytes32 structHash = keccak256(abi.encode(typeHash, from, to, value, validAfter, validBefore, nonce));
 
         bytes32 hash = _hashTypedDataV4(structHash);
         address signer = ECDSA.recover(hash, v, r, s);
@@ -199,12 +201,14 @@ abstract contract ERC20EIP3009Upgradeable is Initializable, EIP712Upgradeable, I
     }
 
     function _getEIP3009Storage() private pure returns (EIP3009Storage storage $) {
-        bytes32 position = keccak256(abi.encode(uint256(keccak256("advanced.token.eip3009.storage")) - 1));
         assembly {
-            $.slot := position
+            $.slot := EIP3009_STORAGE_LOCATION
         }
     }
 
-    // Virtual function to be implemented by the main contract
+    /**
+     * @dev Virtual function implemented by the main contract. Gross fee
+     * semantics: `to` receives exactly `value`, `from` pays value + fee.
+     */
     function _executeTransfer(address from, address to, uint256 value) internal virtual;
 }

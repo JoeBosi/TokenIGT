@@ -17,7 +17,7 @@ describe("Token - Basic Edge Cases", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -54,7 +54,7 @@ describe("Token - Basic Edge Cases", function () {
       // Grant FEE_ADMIN_ROLE to owner
       await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       
-      await token.connect(owner).setFee(0);
+      await token.connect(owner).setTransferFeeBps(0);
       
       const amount = ethers.parseEther("100");
       await token.transfer(addr1.address, amount);
@@ -66,13 +66,13 @@ describe("Token - Basic Edge Cases", function () {
       // Grant FEE_ADMIN_ROLE to owner
       await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       
-      await token.connect(owner).setFee(999);
+      await token.connect(owner).setTransferFeeBps(100);
       
       const amount = ethers.parseEther("100");
       await token.transfer(addr1.address, amount);
       
-      // 99.9% fee deducted
-      const expectedFee = amount * 999n / 10000n;
+      // 1% fee (the maximum) deducted
+      const expectedFee = amount * 100n / 10000n;
       const expectedReceived = amount - expectedFee;
       
       expect(await token.balanceOf(addr1.address)).to.equal(expectedReceived);
@@ -133,7 +133,7 @@ describe("Token - Basic Edge Cases", function () {
       await token.grantRole(await token.BLOCKER_ROLE(), owner.address);
       
       // Block account
-      await token.connect(owner).blockAddress(addr1.address);
+      await token.connect(owner).blockAccount(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.true;
       
       // Should not be able to transfer to blocked account
@@ -141,7 +141,7 @@ describe("Token - Basic Edge Cases", function () {
         .to.be.reverted;
       
       // Unblock account
-      await token.connect(owner).unblock(addr1.address);
+      await token.connect(owner).unblockAccount(addr1.address);
       expect(await token.isBlocked(addr1.address)).to.be.false;
       
       // Should be able to transfer after unblock
@@ -206,7 +206,7 @@ describe("Token - Basic Edge Cases", function () {
       
       // Freeze and block account
       await token.connect(owner).freeze(addr1.address);
-      await token.connect(owner).blockAddress(addr1.address);
+      await token.connect(owner).blockAccount(addr1.address);
       
       // Blocked should prevent transfer
       await expect(token.connect(addr1).transfer(addr2.address, 100))
@@ -236,8 +236,8 @@ describe("Token - Basic Edge Cases", function () {
       await token.grantRole(await token.BLOCKER_ROLE(), owner.address);
       await token.grantRole(await token.PAUSER_ROLE(), owner.address);
       
-      // Set high fee
-      await token.connect(owner).setFee(500); // 5%
+      // Set the maximum fee
+      await token.connect(owner).setTransferFeeBps(100); // 1%
       
       // Transfer some tokens
       const amount = ethers.parseEther("1000");
@@ -254,14 +254,14 @@ describe("Token - Basic Edge Cases", function () {
       await token.connect(owner).unfreeze(addr1.address);
       
       // Block account
-      await token.connect(owner).blockAddress(addr1.address);
+      await token.connect(owner).blockAccount(addr1.address);
       
       // Should not be able to transfer when blocked
       await expect(token.connect(addr1).transfer(addr2.address, 100))
         .to.be.reverted;
       
       // Unblock
-      await token.connect(owner).unblock(addr1.address);
+      await token.connect(owner).unblockAccount(addr1.address);
       
       // Pause contract
       await token.connect(owner).pause();
@@ -277,7 +277,7 @@ describe("Token - Basic Edge Cases", function () {
       await token.connect(addr1).transfer(addr2.address, 100);
       
       // Check fee was applied
-      const expectedFee = 100n * 500n / 10000n; // 5% of 100
+      const expectedFee = 100n * 100n / 10000n; // 1% of 100
       const expectedReceived = 100n - expectedFee;
       expect(await token.balanceOf(addr2.address)).to.equal(expectedReceived);
     });

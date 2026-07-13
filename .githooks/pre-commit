@@ -1,0 +1,9 @@
+#!/bin/sh
+# Blocca il commit se sono in stage file duplicati da sync cloud: "nome (1).ext"
+dups=$(git diff --cached --name-only --diff-filter=A | grep -E ' \([0-9]+\)' || true)
+if [ -n "$dups" ]; then
+  echo "❌ COMMIT BLOCCATO: file duplicati da sync cloud (Google Drive/OneDrive/iCloud):"
+  echo "$dups" | sed 's/^/   /'
+  echo "Rimuovili prima di committare:  git reset HEAD <file> && rm \"<file>\""
+  exit 1
+fi

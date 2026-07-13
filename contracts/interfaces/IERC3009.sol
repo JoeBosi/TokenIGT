@@ -62,13 +62,7 @@ interface IERC3009 {
      * @param r The signature output r
      * @param s The signature output s
      */
-    function cancelAuthorization(
-        address authorizer,
-        bytes32 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
+    function cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external;
 
     /**
      * @notice Check the state of an authorization

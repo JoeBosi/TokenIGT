@@ -19,7 +19,7 @@ describe("Token - Comprehensive Upgrade Tests", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -96,7 +96,7 @@ describe("Token - Comprehensive Upgrade Tests", function () {
       // Set up restrictions in V1
       await token.transfer(addr1.address, ethers.parseEther("1000"));
       await token.connect(owner).freeze(addr1.address);
-      await token.connect(owner).blockAddress(addr2.address);
+      await token.connect(owner).blockAccount(addr2.address);
       await token.connect(owner).pause();
       
       // V1 -> V2
@@ -171,7 +171,7 @@ describe("Token - Comprehensive Upgrade Tests", function () {
       await token.grantRole(await token.FEE_ADMIN_ROLE(), owner.address);
       
       // Set fee in V1
-      await token.connect(owner).setFee(50); // 0.5%
+      await token.connect(owner).setTransferFeeBps(50); // 0.5%
       
       const amount = ethers.parseEther("1000");
       await token.transfer(addr1.address, amount);

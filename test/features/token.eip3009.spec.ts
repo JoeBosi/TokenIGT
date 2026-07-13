@@ -17,7 +17,7 @@ describe("Token - EIP-3009 Transfer With Authorization", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -114,9 +114,10 @@ describe("Token - EIP-3009 Transfer With Authorization", function () {
       const nonce = ethers.keccak256(ethers.toUtf8Bytes("test-nonce-5"));
 
       const domain = await token.eip712Domain();
+      // A1: the receive flow uses the DISTINCT ReceiveWithAuthorization typehash
       const signature = await owner.signTypedData(
         { name: domain.name, version: domain.version, chainId: domain.chainId, verifyingContract: domain.verifyingContract },
-        { TransferWithAuthorization: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "value", type: "uint256" }, { name: "validAfter", type: "uint256" }, { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" }] },
+        { ReceiveWithAuthorization: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "value", type: "uint256" }, { name: "validAfter", type: "uint256" }, { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" }] },
         { from: owner.address, to: addr1.address, value: amount, validAfter: validAfter, validBefore: validBefore, nonce: nonce }
       );
 
@@ -127,7 +128,7 @@ describe("Token - EIP-3009 Transfer With Authorization", function () {
       expect(await token.balanceOf(addr1.address)).to.equal(amount);
     });
 
-    it("Should fail when recipient is not msg.sender", async function () {
+    it("Should fail when recipient is not msg.sender (CallerNotPayee)", async function () {
       const amount = ethers.parseEther("100");
       const validAfter = Math.floor(Date.now() / 1000) - 3600;
       const validBefore = Math.floor(Date.now() / 1000) + 3600;
@@ -136,13 +137,34 @@ describe("Token - EIP-3009 Transfer With Authorization", function () {
       const domain = await token.eip712Domain();
       const signature = await owner.signTypedData(
         { name: domain.name, version: domain.version, chainId: domain.chainId, verifyingContract: domain.verifyingContract },
-        { TransferWithAuthorization: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "value", type: "uint256" }, { name: "validAfter", type: "uint256" }, { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" }] },
+        { ReceiveWithAuthorization: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "value", type: "uint256" }, { name: "validAfter", type: "uint256" }, { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" }] },
         { from: owner.address, to: addr1.address, value: amount, validAfter: validAfter, validBefore: validBefore, nonce: nonce }
       );
 
       const { v, r, s } = ethers.Signature.from(signature);
 
+      // Called by owner (not the payee addr1): reverts on the caller check, BEFORE
+      // signature validation → dedicated CallerNotPayee error
       await expect(token.receiveWithAuthorization(owner.address, addr1.address, amount, validAfter, validBefore, nonce, v, r, s))
+        .to.be.revertedWithCustomError(token, "CallerNotPayee");
+    });
+
+    it("A1: a Transfer-typehash signature cannot be used on the receive path", async function () {
+      const amount = ethers.parseEther("100");
+      const validAfter = Math.floor(Date.now() / 1000) - 3600;
+      const validBefore = Math.floor(Date.now() / 1000) + 3600;
+      const nonce = ethers.keccak256(ethers.toUtf8Bytes("test-nonce-cross"));
+
+      const domain = await token.eip712Domain();
+      // Signed with the TRANSFER typehash — must NOT validate on receive
+      const signature = await owner.signTypedData(
+        { name: domain.name, version: domain.version, chainId: domain.chainId, verifyingContract: domain.verifyingContract },
+        { TransferWithAuthorization: [{ name: "from", type: "address" }, { name: "to", type: "address" }, { name: "value", type: "uint256" }, { name: "validAfter", type: "uint256" }, { name: "validBefore", type: "uint256" }, { name: "nonce", type: "bytes32" }] },
+        { from: owner.address, to: addr1.address, value: amount, validAfter: validAfter, validBefore: validBefore, nonce: nonce }
+      );
+      const { v, r, s } = ethers.Signature.from(signature);
+
+      await expect(token.connect(addr1).receiveWithAuthorization(owner.address, addr1.address, amount, validAfter, validBefore, nonce, v, r, s))
         .to.be.revertedWithCustomError(token, "InvalidSignature");
     });
   });

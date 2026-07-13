@@ -20,7 +20,7 @@ describe("Token - Recoverable", function () {
     const Token = await ethers.getContractFactory("Token");
     token = await upgrades.deployProxy(
       Token,
-      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, owner.address],
+      ["IGE Token", "IGT", INITIAL_SUPPLY, owner.address, 10, owner.address, 50, owner.address, owner.address, 3 * 24 * 60 * 60],
       { kind: "uups" }
     ) as unknown as Token;
     await token.waitForDeployment();
@@ -58,28 +58,46 @@ describe("Token - Recoverable", function () {
       await expect(token.connect(recoverer).recoverERC20(await mockERC20.getAddress(), ethers.ZeroAddress, 0))
         .to.be.revertedWithCustomError(token, "InvalidRecipient");
     });
+
+    it("Should emit AssetRecovered (kind ERC20=0, asset, to, amount, executor)", async function () {
+      const amount = ethers.parseEther("50");
+      await mockERC20.transfer(await token.getAddress(), amount);
+
+      await expect(token.connect(recoverer).recoverERC20(await mockERC20.getAddress(), addr1.address, amount))
+        .to.emit(token, "AssetRecovered")
+        .withArgs(0, await mockERC20.getAddress(), addr1.address, amount, recoverer.address);
+    });
   });
 
-  describe("recoverETH", function () {
-    it("Should allow recoverer to recover ETH", async function () {
+  describe("recoverNative", function () {
+    it("Should allow recoverer to recover native POL", async function () {
       const amount = ethers.parseEther("1");
       await owner.sendTransaction({ to: await token.getAddress(), value: amount });
 
       const balanceBefore = await ethers.provider.getBalance(addr1.address);
-      await token.connect(recoverer).recoverETH(addr1.address, amount);
+      await token.connect(recoverer).recoverNative(addr1.address, amount);
       const balanceAfter = await ethers.provider.getBalance(addr1.address);
 
       expect(balanceAfter - balanceBefore).to.equal(amount);
     });
 
-    it("Should not allow non-recoverer to recover ETH", async function () {
-      await expect(token.connect(addr1).recoverETH(addr1.address, 0))
+    it("Should not allow non-recoverer to recover native POL", async function () {
+      await expect(token.connect(addr1).recoverNative(addr1.address, 0))
         .to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
 
     it("Should fail with zero recipient", async function () {
-      await expect(token.connect(recoverer).recoverETH(ethers.ZeroAddress, 0))
+      await expect(token.connect(recoverer).recoverNative(ethers.ZeroAddress, 0))
         .to.be.revertedWithCustomError(token, "InvalidRecipient");
+    });
+
+    it("Should emit AssetRecovered (kind Native=1, asset=0x0, to, amount, executor)", async function () {
+      const amount = ethers.parseEther("1");
+      await owner.sendTransaction({ to: await token.getAddress(), value: amount });
+
+      await expect(token.connect(recoverer).recoverNative(addr1.address, amount))
+        .to.emit(token, "AssetRecovered")
+        .withArgs(1, ethers.ZeroAddress, addr1.address, amount, recoverer.address);
     });
   });
 
@@ -93,6 +111,15 @@ describe("Token - Recoverable", function () {
       await token.connect(recoverer).recoverERC721(await mockERC721.getAddress(), addr1.address, tokenId);
 
       expect(await mockERC721.ownerOf(tokenId)).to.equal(addr1.address);
+    });
+
+    it("Should emit AssetRecovered (kind ERC721=2, asset, to, tokenId, executor)", async function () {
+      await mockERC721.mint(await token.getAddress());
+      const tokenId = 0;
+
+      await expect(token.connect(recoverer).recoverERC721(await mockERC721.getAddress(), addr1.address, tokenId))
+        .to.emit(token, "AssetRecovered")
+        .withArgs(2, await mockERC721.getAddress(), addr1.address, tokenId, recoverer.address);
     });
 
     it("Should not allow non-recoverer to recover ERC721", async function () {

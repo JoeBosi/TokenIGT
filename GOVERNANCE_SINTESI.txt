@@ -1,0 +1,72 @@
+========================================================================
+GOVERNANCE IGT — SINTESI + AUDIT LOGICO DELLA DIVISIONE RUOLI
+========================================================================
+
+------------------------------------------------------------------------
+COME FUNZIONA (minimo indispensabile)
+------------------------------------------------------------------------
+Il contratto usa "ruoli": ogni funzione sensibile richiede il ruolo
+dedicato. Chi ha DEFAULT_ADMIN puo' assegnare/togliere gli altri ruoli.
+DEFAULT_ADMIN non si sposta di colpo: transfer a DUE FASI con delay
+(begin -> attesa -> accept). Sono 10 ruoli:
+
+  ROOT / GOVERNANCE (raro, freddo, su multisig):
+   1 DEFAULT_ADMIN  assegna ruoli; root di tutto
+   2 UPGRADER       cambia il codice (upgradeToAndCall)
+   3 FEE_ADMIN      parametri economici: fee, collector, treasury, esenzioni
+   4 RECOVERER      recupera fondi inviati per errore
+
+  OPERATIVO (frequente/urgente, chiavi calde):
+   5 PAUSER         pausa d'emergenza (deve reagire in minuti)
+   6 SWEEPER        incassa la custodia (centinaia di tx, 1 volta/anno)
+
+  SUPPLY (occasionale, legato all'oro):
+   7 MINTER         crea IGT (solo contro grammi attestati)
+   8 BURNER         distrugge IGT
+
+  COMPLIANCE (occasionale):
+   9 FREEZER        congela un conto (non puo' muovere i suoi fondi)
+  10 BLOCKER        blocca un conto (non invia/riceve)
+
+------------------------------------------------------------------------
+AUDIT LOGICO — funziona? e' migliorabile? semplificabile?
+------------------------------------------------------------------------
+VERDETTO: il design e' CORRETTO e standard per un token serio (principio
+del minimo privilegio). NON e' over-engineering. La sensazione di
+complessita' nasce da un equivoco: 10 RUOLI != 10 CHIAVI/PERSONE.
+
+Punto chiave: i ruoli sono "permessi", non "persone". Puoi assegnare
+PIU' ruoli alla STESSA chiave. Quindi 10 ruoli si mappano su ~4 ATTORI:
+
+   A. SAFE multisig  -> DEFAULT_ADMIN + UPGRADER + FEE_ADMIN + RECOVERER
+   B. Wallet OPS caldo -> PAUSER + FREEZER + BLOCKER
+   C. Wallet SUPPLY   -> MINTER + BURNER
+   D. Wallet SWEEP caldo -> SWEEPER
+
+Da gestire quindi: 4 chiavi, non 10. La granularita' fine nel contratto
+e' GRATIS e serve dopo: puoi sempre accorpare in fase di assegnazione,
+ma NON puoi separare in futuro senza un upgrade.
+
+SEPARAZIONI DA TENERE (giustificate, non toccare):
+ - SWEEPER separato da FEE_ADMIN: la chiave calda che firma lo sweep NON
+   deve poter cambiare treasury/fee. E' la separazione piu' importante.
+ - UPGRADER separato da DEFAULT_ADMIN: due poteri massimi, si tengono
+   distinti anche se entrambi sul Safe.
+ - MINTER separato: crea valore, va legato all'attestazione oro.
+ - PAUSER da solo su chiave calda: deve reagire in minuti.
+
+UNICO ACCORPAMENTO SENSATO A LIVELLO CONTRATTO (opzionale):
+ - FREEZER + BLOCKER -> un solo ruolo COMPLIANCE. Fanno azioni simili,
+   stesso operatore, stessa urgenza. Ma richiede un UPGRADE (modifica
+   codice) e fa risparmiare 1 ruolo su 10: NON vale la pena adesso.
+   Meglio accorparli a livello di ASSEGNAZIONE (attore B), gratis.
+
+RACCOMANDAZIONE:
+ - NON modificare il contratto. E' gia' ottimo.
+ - Semplificare nella PRATICA: mappare i 10 ruoli sui 4 attori sopra e
+   scriverlo in GOVERNANCE.md. Cosi' operi 4 chiavi con la sicurezza di 10.
+
+RISCHIO OPPOSTO (da evitare): mettere tutto su 1 sola chiave "per
+semplicita'". Annullerebbe il minimo privilegio: una chiave rubata =
+token perso. I 4 attori sono il buon compromesso sicurezza/semplicita'.
+========================================================================
