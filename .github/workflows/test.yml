@@ -54,12 +54,13 @@ jobs:
         run: forge fmt --check contracts/ test/foundry/
 
       # TokenV2/V3 (contracts/mocks/) are test-only upgrade fixtures, never
-      # deployed on a real network; v2.4.0 growth in Token.sol pushed TokenV3
-      # past the EIP-170 limit. Token.sol itself stays well under budget —
-      # skip the mock from this check (it's still fully compiled and tested
-      # by `forge test` below, just not size-checked).
+      # deployed on a real network; growth in Token.sol (v2.4.0 → v2.5.0) pushed
+      # BOTH mocks past the EIP-170 limit (they inherit Token + extra test
+      # storage). Token.sol itself stays under budget (24,082 B, margin 494) —
+      # skip the mocks from this check; they are still fully compiled and tested
+      # by `forge test` below, just not size-checked.
       - name: Run Forge build
-        run: forge build --sizes --skip "TokenV3.sol"
+        run: forge build --sizes --skip "TokenV2.sol" --skip "TokenV3.sol"
 
       - name: Run Forge tests
         run: forge test -vvv
