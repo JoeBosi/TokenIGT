@@ -30,6 +30,9 @@ contract TokenEIP3009Test is Test {
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak256(
         "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
     );
+    bytes32 public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = keccak256(
+        "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
+    );
     bytes32 public constant CANCEL_AUTHORIZATION_TYPEHASH =
         keccak256("CancelAuthorization(address authorizer,bytes32 nonce)");
 
@@ -102,6 +105,24 @@ contract TokenEIP3009Test is Test {
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 structHash = keccak256(
             abi.encode(TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce)
+        );
+        bytes32 digest = _hashTypedData(structHash);
+        (v, r, s) = vm.sign(pk, digest);
+    }
+
+    /// @dev Build and sign a ReceiveWithAuthorization EIP-712 struct (distinct
+    /// typehash from transfer — the anti-front-running protection)
+    function _signReceive(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint256 pk
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 structHash = keccak256(
+            abi.encode(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce)
         );
         bytes32 digest = _hashTypedData(structHash);
         (v, r, s) = vm.sign(pk, digest);
@@ -395,7 +416,7 @@ contract TokenEIP3009Test is Test {
         uint256 fee = _fee(TRANSFER_AMOUNT);
 
         (uint8 v, bytes32 r, bytes32 s) =
-            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+            _signReceive(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
 
         uint256 recipientBefore = token.balanceOf(recipient);
         uint256 collectorBefore = token.balanceOf(feeCollector);
@@ -424,12 +445,12 @@ contract TokenEIP3009Test is Test {
         uint256 validBefore = block.timestamp + 1 hours;
 
         (uint8 v, bytes32 r, bytes32 s) =
-            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+            _signReceive(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
 
         // Called by someone who is NOT the recipient
         address wrongCaller = address(0xDEAD);
         vm.prank(wrongCaller);
-        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        vm.expectRevert(ERC20EIP3009Upgradeable.CallerNotPayee.selector);
         token.receiveWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
     }
 
@@ -438,7 +459,7 @@ contract TokenEIP3009Test is Test {
         uint256 validAfter = 0;
         uint256 validBefore = block.timestamp + 1 hours;
 
-        (uint8 v, bytes32 r, bytes32 s) = _signTransfer(signer, recipient, 1, validAfter, validBefore, nonce, signerPk);
+        (uint8 v, bytes32 r, bytes32 s) = _signReceive(signer, recipient, 1, validAfter, validBefore, nonce, signerPk);
 
         vm.prank(recipient);
         token.receiveWithAuthorization(signer, recipient, 1, validAfter, validBefore, nonce, v, r, s);
@@ -446,6 +467,51 @@ contract TokenEIP3009Test is Test {
         vm.prank(recipient);
         vm.expectRevert(ERC20EIP3009Upgradeable.AuthorizationAlreadyUsed.selector);
         token.receiveWithAuthorization(signer, recipient, 1, validAfter, validBefore, nonce, v, r, s);
+    }
+
+    // ─────────────────────────────────────────────
+    // EIP-3009 typehash separation (A1 fix): transfer and receive signatures
+    // are NOT interchangeable — this is what makes receiveWithAuthorization's
+    // `to == msg.sender` an actual anti-front-running protection.
+    // ─────────────────────────────────────────────
+
+    /// @dev a TransferWithAuthorization signature is NOT valid for the receive path
+    function test_receiveWithAuthorization_rejectsTransferTypehashSignature() public {
+        bytes32 nonce = keccak256("nonce-recv-transfer-sig");
+        uint256 validAfter = 0;
+        uint256 validBefore = block.timestamp + 1 hours;
+
+        // Signed with the TRANSFER typehash
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+
+        vm.prank(recipient); // correct caller, so we reach signature validation
+        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        token.receiveWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
+    }
+
+    /// @dev SECURITY: a ReceiveWithAuthorization signature (protected by
+    /// to==msg.sender) CANNOT be front-run/executed via transferWithAuthorization.
+    /// Before the A1 fix the shared typehash made this replay possible.
+    function test_transferWithAuthorization_rejectsReceiveTypehashSignature() public {
+        bytes32 nonce = keccak256("nonce-transfer-receive-sig");
+        uint256 validAfter = 0;
+        uint256 validBefore = block.timestamp + 1 hours;
+
+        // Signed with the RECEIVE typehash — meant ONLY for receiveWithAuthorization
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signReceive(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+
+        // An attacker tries to execute it via the unguarded transfer path
+        address attacker = address(0xA77ACC);
+        vm.prank(attacker);
+        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        token.transferWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
+
+        // And the nonce is untouched: the legitimate receive still works
+        vm.prank(recipient);
+        token.receiveWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
+        assertTrue(token.authorizationState(signer, nonce));
     }
 
     // ─────────────────────────────────────────────
@@ -579,11 +645,11 @@ contract TokenEIP3009Test is Test {
         uint256 validBefore = block.timestamp + 1 hours;
 
         (uint8 v, bytes32 r, bytes32 s) =
-            _signTransfer(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
+            _signReceive(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, signerPk);
 
         address lowCaller = address(0x1); // < recipient (0xBEEF) and != recipient
         vm.prank(lowCaller);
-        vm.expectRevert(ERC20EIP3009Upgradeable.InvalidSignature.selector);
+        vm.expectRevert(ERC20EIP3009Upgradeable.CallerNotPayee.selector);
         token.receiveWithAuthorization(signer, recipient, TRANSFER_AMOUNT, validAfter, validBefore, nonce, v, r, s);
     }
 

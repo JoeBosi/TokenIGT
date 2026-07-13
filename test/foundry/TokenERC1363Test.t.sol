@@ -491,6 +491,33 @@ contract TokenERC1363Test is Test {
         token.transferFromAndCall(sender, address(goodReceiver), TRANSFER_AMOUNT);
     }
 
+    /// @dev A5-fix: when `from` IS the fee collector the fee leg is skipped (the
+    /// fee stays with `from`), so only `value` leaves `from` and the allowance is
+    /// charged exactly `value` — not value + fee.
+    function test_transferFromAndCall_fromIsCollector_allowanceChargedValueOnly() public {
+        _enableFee();
+        // Make the sender itself the fee collector
+        vm.prank(admin);
+        token.setFeeCollector(sender);
+        assertEq(token.feeCollector(), sender);
+
+        address spender = address(0xC008);
+        // Allowance of exactly `value` (NOT value + fee) must suffice
+        vm.prank(sender);
+        token.approve(spender, TRANSFER_AMOUNT);
+
+        uint256 senderBefore = token.balanceOf(sender);
+
+        vm.prank(spender);
+        bool ok = token.transferFromAndCall(sender, address(goodReceiver), TRANSFER_AMOUNT);
+
+        assertTrue(ok);
+        assertEq(token.balanceOf(address(goodReceiver)), TRANSFER_AMOUNT);
+        // from loses only `value` (fee stayed with from), allowance fully consumed
+        assertEq(token.balanceOf(sender), senderBefore - TRANSFER_AMOUNT);
+        assertEq(token.allowance(sender, spender), 0);
+    }
+
     function test_transferFromAndCall_infiniteAllowanceNotDecremented() public {
         _enableFee();
         address spender = address(0xC008);

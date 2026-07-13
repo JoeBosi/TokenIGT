@@ -71,6 +71,8 @@ contract Token is
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
     error InvalidAdmin();
+    /// @dev initialize called with initialSupply > 0 but initialHolder == address(0)
+    error InvalidInitialHolder();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -130,7 +132,12 @@ contract Token is
         _grantRole(FEE_ADMIN_ROLE, defaultAdmin_);
         _grantRole(RECOVERER_ROLE, defaultAdmin_);
 
-        if (initialSupply_ > 0 && initialHolder_ != address(0)) {
+        // Fail fast on a misconfigured deploy (supply requested but no holder)
+        // instead of silently initializing with totalSupply() == 0.
+        if (initialSupply_ > 0) {
+            if (initialHolder_ == address(0)) {
+                revert InvalidInitialHolder();
+            }
             _mint(initialHolder_, initialSupply_);
         }
     }
@@ -265,11 +272,17 @@ contract Token is
 
     /**
      * @dev ERC-1363 transferFromAndCall: the allowance must cover the gross
-     * (value + fee), then gross fee semantics
+     * actually leaving `from`, then gross fee semantics. When `from` is itself
+     * the fee collector the fee leg is skipped (the fee stays with `from`), so
+     * the allowance is charged only `value` — consistent with the tokens moved.
      */
     function _transferFrom1363(address from, address spender, address to, uint256 value) internal override {
         uint256 feeAmount = _calculateTransferFee(from, to, value);
-        _spendAllowance(from, spender, value + feeAmount);
+        uint256 grossOwed = value;
+        if (feeAmount > 0 && feeCollector() != from) {
+            grossOwed += feeAmount;
+        }
+        _spendAllowance(from, spender, grossOwed);
         _grossTransfer(from, to, value);
     }
 
@@ -299,6 +312,14 @@ contract Token is
      */
     function previewNet(uint256 grossAmount) public view returns (uint256) {
         return grossAmount - (grossAmount * transferFeeBps()) / 10000;
+    }
+
+    /**
+     * @notice True if `account` cannot transact (blocked OR frozen). Single
+     * authoritative check for integrators, mirroring `_runSecurityChecks`.
+     */
+    function isRestricted(address account) public view returns (bool) {
+        return isBlocked(account) || isFrozen(account);
     }
 
     /**
@@ -355,7 +376,7 @@ contract Token is
      * @notice Contract version
      */
     function version() public pure virtual returns (string memory) {
-        return "2.4.0";
+        return "2.5.0";
     }
 
     // ========================================

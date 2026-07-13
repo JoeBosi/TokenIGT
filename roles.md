@@ -1,4 +1,4 @@
-# Roles & Methods Matrix — Token v2.4.0
+# Roles & Methods Matrix — Token v2.5.0
 
 Legenda:
 - **✅** = può chiamare il metodo (richiede il ruolo)
@@ -55,12 +55,12 @@ assegnati post-deploy a indirizzi dedicati via `scripts/roles/grant_roles.ts`
 | `isFrozen(address)` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— BLOCKLIST —** | | | | | | | | | | | |
 | `blockAccount(address)` / `unblockAccount(address)` | — | — | — | — | — | — | ✅ | — | — | — | — |
-| `isBlocked(address)` | — | — | — | — | — | — | — | — | — | — | 👁️ |
+| `isBlocked(address)` / `isRestricted(address)` (=blocked‖frozen, v2.5.0) | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— TRANSFER FEE (governance) —** | | | | | | | | | | | |
 | `setTransferFeeBps(uint256)` (cap 100) | — | — | — | — | — | — | — | ✅ | — | — | — |
 | `setFeeCollector(address)` | — | — | — | — | — | — | — | ✅ | — | — | — |
 | `addTransferFeeExempt(address)` / `removeTransferFeeExempt(address)` | — | — | — | — | — | — | — | ✅ | — | — | — |
-| `transferFeeBps()` / `feeCollector()` / `isTransferFeeExempt(address)` / `getTransferFeeExemptList()` | — | — | — | — | — | — | — | — | — | — | 👁️ |
+| `transferFeeBps()` / `feeCollector()` / `isTransferFeeExempt(address)` / `getTransferFeeExemptList()` / `getTransferFeeExemptCount()` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | `previewNet(uint256)` / `previewGross(uint256)` / `maxNetTransferable(address)` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— CUSTODY FEE — parametri (governance) —** | | | | | | | | | | | |
 | `setCustodyFeeBps(uint256)` (cap 200) | — | — | — | — | — | — | — | ✅ | — | — | — |
@@ -69,7 +69,7 @@ assegnati post-deploy a indirizzi dedicati via `scripts/roles/grant_roles.ts`
 | **— CUSTODY FEE — operativo (v2.4.0: SWEEPER, non più FEE_ADMIN) —** | | | | | | | | | | | |
 | `startNewCycle()` | — | — | — | — | — | — | — | — | ✅ | — | — |
 | `sweepCustodyFee(address[])` | — | — | — | — | — | — | — | — | ✅ | — | — |
-| `custodyFeeBps()` / `custodyTreasury()` / `currentCycle()` / `lastSweptCycle(address)` / `isCustodyFeeExempt(address)` / `getCustodyFeeExemptList()` | — | — | — | — | — | — | — | — | — | — | 👁️ |
+| `custodyFeeBps()` / `custodyTreasury()` / `currentCycle()` / `lastSweptCycle(address)` / `isCustodyFeeExempt(address)` / `getCustodyFeeExemptList()` / `getCustodyFeeExemptCount()` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— RECOVERY —** | | | | | | | | | | | |
 | `recoverERC20(address, address, uint256)` | — | — | — | — | — | — | — | — | — | ✅ | — |
 | `recoverNative(address payable, uint256)` | — | — | — | — | — | — | — | — | — | ✅ | — |
@@ -99,7 +99,7 @@ assegnati post-deploy a indirizzi dedicati via `scripts/roles/grant_roles.ts`
 | `transferAndCall(...)` / `transferFromAndCall(...)` / `approveAndCall(...)` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | `supportsInterface(bytes4)` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 | **— METADATA —** | | | | | | | | | | | |
-| `version()` → `"2.4.0"` | — | — | — | — | — | — | — | — | — | — | 👁️ |
+| `version()` → `"2.5.0"` | — | — | — | — | — | — | — | — | — | — | 👁️ |
 
 > \* Reverte SEMPRE, incondizionatamente, anche per il titolare di `DEFAULT_ADMIN_ROLE` —
 >   protezione contro un `DEFAULT_ADMIN_ROLE` riassegnabile fuori dal flusso a due fasi.

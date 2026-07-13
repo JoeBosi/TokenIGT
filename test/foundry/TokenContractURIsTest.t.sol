@@ -132,6 +132,28 @@ contract TokenContractURIsTest is Test {
         assertEq(token.contractURI(), "https://igt.example/metadata.json");
     }
 
+    /// @dev A2-fix: setContractURI ALSO emits the canonical parameter-less
+    /// ERC-7572 signal `ContractURIUpdated()` (topic-only, no data) so conformant
+    /// explorers/marketplaces refresh the contract metadata.
+    function test_setContractURI_emitsCanonicalERC7572Event() public {
+        bytes32 canonicalTopic = keccak256("ContractURIUpdated()");
+
+        vm.recordLogs();
+        token.setContractURI("https://igt.example/metadata.json");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bool found;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].emitter == address(token) && logs[i].topics.length == 1 && logs[i].topics[0] == canonicalTopic
+                    && logs[i].data.length == 0
+            ) {
+                found = true;
+            }
+        }
+        assertTrue(found, "canonical ERC-7572 ContractURIUpdated() not emitted");
+    }
+
     function test_setContractURI_overwritesPrevious() public {
         token.setContractURI("https://old.example/metadata.json");
 

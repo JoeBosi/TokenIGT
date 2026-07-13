@@ -87,10 +87,19 @@ abstract contract ERC20TransferFeeUpgradeable is Initializable, AccessControlUpg
 
     /**
      * @notice Full list of transfer-fee-exempt accounts
-     * @dev Unbounded: intended for off-chain use only
+     * @dev Unbounded: intended for off-chain use only. For on-chain/paginated
+     * access use getTransferFeeExemptCount + getTransferFeeExemptAt.
      */
     function getTransferFeeExemptList() public view returns (address[] memory) {
         return _getTransferFeeStorage().exempt.values();
+    }
+
+    /**
+     * @notice Number of transfer-fee-exempt accounts (O(1), avoids downloading
+     * the unbounded getTransferFeeExemptList just to learn the size)
+     */
+    function getTransferFeeExemptCount() external view returns (uint256) {
+        return _getTransferFeeStorage().exempt.length();
     }
 
     /**

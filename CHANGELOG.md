@@ -2,6 +2,43 @@
 
 All notable changes to the IGE Token project.
 
+## [2.5.0] - 2026-07-13 — branch 2026706ClaudeCode
+
+> Fix dell'audit interno delle strutture dati (`AUDIT_STRUTTURE_DATI.md`).
+> BREAKING (schema di firma EIP-3009 receive): richiede deploy fresco.
+
+### Fixed
+- **A1 (sicurezza/interop) — EIP-3009 `receiveWithAuthorization`**: usava lo stesso
+  typehash `TransferWithAuthorization` del percorso transfer. Introdotto il typehash
+  normativo distinto `ReceiveWithAuthorization`: ripristina l'interoperabilità con
+  wallet/SDK conformi e la protezione anti-front-running (una firma *receive* non è
+  più eseguibile via `transferWithAuthorization`). Nuovo errore dedicato
+  `CallerNotPayee` (era `InvalidSignature`) quando `to != msg.sender`.
+- **A2 — evento ERC-7572**: `setContractURI` emette ora ANCHE l'evento canonico
+  parameter-less `ContractURIUpdated()` (oltre a quello ricco `(prev,new)`), così gli
+  explorer/marketplace conformi rifetchano i metadati.
+- **A3 — `initialize`**: reverta `InvalidInitialHolder` se `initialSupply>0` ma
+  `initialHolder==address(0)` (prima inizializzava in silenzio a supply 0).
+- **A4 — guardia zero-address**: `freeze`/`unfreeze`/`blockAccount`/`unblockAccount`
+  revertano su `address(0)` (`InvalidFreezeAccount`/`InvalidBlockAccount`) invece di
+  emettere eventi spuri.
+- **A5 — allowance ERC-1363**: `transferFromAndCall` addebita l'allowance sul lordo
+  EFFETTIVAMENTE pagato — quando `from` è il fee collector la gamba fee è saltata e
+  l'allowance è addebitata solo `value` (prima `value+fee`, over-charge).
+
+### Added
+- `isRestricted(address)` = `isBlocked || isFrozen` (check unico per gli integratori).
+- `getTransferFeeExemptCount()` / `getCustodyFeeExemptCount()` (O(1), evitano di
+  scaricare la lista unbounded solo per conoscerne la dimensione).
+- `version()` → `"2.5.0"`. Test: **561** (335 Foundry + 226 Hardhat), tra cui 2 test
+  di sicurezza EIP-3009 (typehash non intercambiabili) e la copertura dei fix A2-A5.
+
+### Note / deferred
+- Alcune migliorie proposte dall'audit sono state **rinviate per rientrare
+  nell'EIP-170** (Token.sol a 24.082 B, margine 494): mutatori batch freeze/block,
+  view batch, preview esenzione-aware, `previewCustodyFee`, getter `…ExemptAt`
+  paginato. Sono documentate in `AUDIT_STRUTTURE_DATI.md` §4; nessuna è un bug.
+
 ## [2.4.0] - 2026-07-11 — branch 2026706ClaudeCode
 
 > BREAKING: richiede deploy fresco (nuova `initialize` a 10 parametri, nuovo

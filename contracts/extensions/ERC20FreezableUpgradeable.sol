@@ -24,6 +24,8 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
     }
 
     error AccountFrozen();
+    /// @dev freeze/unfreeze called with the zero address (no-op target)
+    error InvalidFreezeAccount();
 
     event Frozen(address indexed account);
     event Unfrozen(address indexed account);
@@ -43,9 +45,10 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
 
     /**
      * @notice Freeze an account (idempotent: no effect and no event if already frozen)
-     * @param account The address to freeze
+     * @param account The address to freeze (must not be the zero address)
      */
     function freeze(address account) public onlyRole(FREEZER_ROLE) {
+        if (account == address(0)) revert InvalidFreezeAccount();
         FreezableStorage storage $ = _getFreezableStorage();
         if (!$.frozen[account]) {
             $.frozen[account] = true;
@@ -55,9 +58,10 @@ abstract contract ERC20FreezableUpgradeable is Initializable, AccessControlUpgra
 
     /**
      * @notice Unfreeze an account (idempotent: no effect and no event if not frozen)
-     * @param account The address to unfreeze
+     * @param account The address to unfreeze (must not be the zero address)
      */
     function unfreeze(address account) public onlyRole(FREEZER_ROLE) {
+        if (account == address(0)) revert InvalidFreezeAccount();
         FreezableStorage storage $ = _getFreezableStorage();
         if ($.frozen[account]) {
             $.frozen[account] = false;

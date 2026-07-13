@@ -120,10 +120,19 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
 
     /**
      * @notice Full list of custody-fee-exempt accounts
-     * @dev Unbounded: intended for off-chain use only
+     * @dev Unbounded: intended for off-chain use only. For on-chain/paginated
+     * access use getCustodyFeeExemptCount + getCustodyFeeExemptAt.
      */
     function getCustodyFeeExemptList() public view returns (address[] memory) {
         return _getCustodyFeeStorage().exempt.values();
+    }
+
+    /**
+     * @notice Number of custody-fee-exempt accounts (O(1), avoids downloading
+     * the unbounded getCustodyFeeExemptList just to learn the size)
+     */
+    function getCustodyFeeExemptCount() external view returns (uint256) {
+        return _getCustodyFeeStorage().exempt.length();
     }
 
     /**
@@ -195,8 +204,13 @@ abstract contract ERC20CustodyFeeUpgradeable is Initializable, AccessControlUpgr
         uint256 bps = $.custodyFeeBps;
         address treasury = $.custodyTreasury;
 
-        for (uint256 i = 0; i < holders.length; i++) {
+        for (uint256 i = 0; i < holders.length;) {
             address holder = holders[i];
+
+            // i < holders.length so ++i can never overflow
+            unchecked {
+                ++i;
+            }
 
             if (holder == address(0) || holder == treasury) continue;
             if ($.lastSweptCycle[holder] == cycle) continue;

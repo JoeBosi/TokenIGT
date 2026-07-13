@@ -24,6 +24,8 @@ abstract contract ERC20BlocklistUpgradeable is Initializable, AccessControlUpgra
     }
 
     error AccountBlocked();
+    /// @dev blockAccount/unblockAccount called with the zero address (no-op target)
+    error InvalidBlockAccount();
 
     event Blocked(address indexed account);
     event Unblocked(address indexed account);
@@ -43,9 +45,10 @@ abstract contract ERC20BlocklistUpgradeable is Initializable, AccessControlUpgra
 
     /**
      * @notice Block an account (idempotent: no effect and no event if already blocked)
-     * @param account The address to block
+     * @param account The address to block (must not be the zero address)
      */
     function blockAccount(address account) public onlyRole(BLOCKER_ROLE) {
+        if (account == address(0)) revert InvalidBlockAccount();
         BlocklistStorage storage $ = _getBlocklistStorage();
         if (!$.blocked[account]) {
             $.blocked[account] = true;
@@ -55,9 +58,10 @@ abstract contract ERC20BlocklistUpgradeable is Initializable, AccessControlUpgra
 
     /**
      * @notice Unblock an account (idempotent: no effect and no event if not blocked)
-     * @param account The address to unblock
+     * @param account The address to unblock (must not be the zero address)
      */
     function unblockAccount(address account) public onlyRole(BLOCKER_ROLE) {
+        if (account == address(0)) revert InvalidBlockAccount();
         BlocklistStorage storage $ = _getBlocklistStorage();
         if ($.blocked[account]) {
             $.blocked[account] = false;

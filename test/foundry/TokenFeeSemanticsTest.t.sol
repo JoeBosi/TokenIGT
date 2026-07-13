@@ -31,9 +31,12 @@ contract TokenFeeSemanticsTest is Test {
     Token public token; // transferFeeBps = FEE_BPS, custodyFeeBps = CUSTODY_BPS
     Token public tokenZero; // transferFeeBps = 0 AND custodyFeeBps = 0
 
-    // EIP-712 type hash (must match exactly what the contract uses)
+    // EIP-712 type hashes (must match exactly what the contract uses)
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak256(
         "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
+    );
+    bytes32 public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = keccak256(
+        "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
     );
 
     bytes32 internal constant TRANSFER_TOPIC = keccak256("Transfer(address,address,uint256)");
@@ -111,6 +114,24 @@ contract TokenFeeSemanticsTest is Test {
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 structHash = keccak256(
             abi.encode(TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce)
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", t.DOMAIN_SEPARATOR(), structHash));
+        (v, r, s) = vm.sign(pk, digest);
+    }
+
+    /// @dev Build and sign a ReceiveWithAuthorization EIP-712 struct for token `t`
+    function _signReceive3009(
+        Token t,
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint256 pk
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 structHash = keccak256(
+            abi.encode(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce)
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", t.DOMAIN_SEPARATOR(), structHash));
         (v, r, s) = vm.sign(pk, digest);
@@ -235,7 +256,7 @@ contract TokenFeeSemanticsTest is Test {
     function test_receiveWithAuthorization_gross_balancesAndEvents() public {
         bytes32 nonce = keccak256("fee-3009-receive");
         uint256 validBefore = block.timestamp + 1 hours;
-        (uint8 v, bytes32 r, bytes32 s) = _sign3009(token, alice, bob, AMOUNT, 0, validBefore, nonce, alicePk);
+        (uint8 v, bytes32 r, bytes32 s) = _signReceive3009(token, alice, bob, AMOUNT, 0, validBefore, nonce, alicePk);
 
         vm.expectEmit(true, true, false, true, address(token));
         emit IERC20.Transfer(alice, bob, AMOUNT);
@@ -375,7 +396,8 @@ contract TokenFeeSemanticsTest is Test {
     function test_zeroFee_receiveWithAuthorization_behavesAsPureERC20() public {
         bytes32 nonce = keccak256("zerofee-3009-receive");
         uint256 validBefore = block.timestamp + 1 hours;
-        (uint8 v, bytes32 r, bytes32 s) = _sign3009(tokenZero, alice, bob, AMOUNT, 0, validBefore, nonce, alicePk);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signReceive3009(tokenZero, alice, bob, AMOUNT, 0, validBefore, nonce, alicePk);
 
         vm.recordLogs();
         vm.prank(bob);

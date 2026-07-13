@@ -1,4 +1,4 @@
-# API Reference — Token v2.4.0
+# API Reference — Token v2.5.0
 
 Ruoli richiesti e matrice completa in [roles.md](./roles.md).
 Semantica delle fee in dettaglio in [SPEC_FEE_CUSTODIA.md](./SPEC_FEE_CUSTODIA.md).
@@ -29,6 +29,9 @@ initialize(
 )
 ```
 
+> v2.5.0: se `initialSupply_ > 0` allora `initialHolder_` deve essere ≠ 0,
+> altrimenti reverta `InvalidInitialHolder` (prima inizializzava a supply 0 in silenzio).
+
 Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_ADMIN, RECOVERER.
 `SWEEPER_ROLE` NON è tra questi (va concesso post-deploy). Emette
 `CycleStarted(1, timestamp)`.
@@ -41,7 +44,7 @@ Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_ADMIN, RECOVER
 | `approve` / `allowance` / `balanceOf` / `totalSupply` / `name` / `symbol` / `decimals` | standard |
 | `mint(to, v)` | MINTER_ROLE |
 | `burn(from, v)` | BURNER_ROLE |
-| `version()` | `"2.4.0"` |
+| `version()` | `"2.5.0"` |
 
 ## Transfer fee (fee di scambio)
 
@@ -52,6 +55,7 @@ Grant automatici al `defaultAdmin_`: DEFAULT_ADMIN, UPGRADER, FEE_ADMIN, RECOVER
 | `feeCollector()` / `setFeeCollector(address)` | view / FEE_ADMIN | ≠0; evento `FeeCollectorUpdated` |
 | `isTransferFeeExempt(address)` / `getTransferFeeExemptList()` | view | esente se mittente O destinatario nel set |
 | `addTransferFeeExempt(a)` / `removeTransferFeeExempt(a)` | FEE_ADMIN | idempotenti; evento `TransferFeeExemptionChanged(account, exempt)` solo al cambio |
+| `getTransferFeeExemptCount()` | view | numero di esenti (O(1), v2.5.0) — evita di scaricare la lista unbounded |
 | `previewNet(gross)` | view | netto consegnato da `transfer(gross)` (parti non-esenti) |
 | `previewGross(net)` | view | minimo lordo per consegnare ≥ net via `transfer` |
 | `maxNetTransferable(sender)` | view | max `v` con `v + fee(v) ≤ balance` (percorso lordo); balance se esente/fee 0; 0 se frozen/blocked |
@@ -68,7 +72,7 @@ Parametri di governance (`FEE_ADMIN_ROLE`) separati dalle operazioni di ciclo/sw
 | `currentCycle()` | view | parte da 1 |
 | `startNewCycle()` | SWEEPER | evento `CycleStarted(cycle, timestamp)` |
 | `lastSweptCycle(holder)` | view | 0 = mai sweepato |
-| `isCustodyFeeExempt(a)` / `getCustodyFeeExemptList()` | view | |
+| `isCustodyFeeExempt(a)` / `getCustodyFeeExemptList()` / `getCustodyFeeExemptCount()` | view | count O(1) aggiunto in v2.5.0 |
 | `addCustodyFeeExempt(a)` / `removeCustodyFeeExempt(a)` | FEE_ADMIN | idempotenti; evento `CustodyFeeExemptionChanged` |
 | `sweepCustodyFee(address[] holders)` | SWEEPER | fee = `balance × bps / 10000` al momento; skip exempt/già sweepato/treasury/zero; **bypassa pause, transfer fee, blocklist, freeze**; evento `CustodyFeeCollected(holder, fee, cycle)` per ogni prelievo |
 
@@ -76,8 +80,9 @@ Parametri di governance (`FEE_ADMIN_ROLE`) separati dalle operazioni di ciclo/sw
 
 | Funzione | Ruolo | Note |
 |---|---|---|
-| `freeze(a)` / `unfreeze(a)` / `isFrozen(a)` | FREEZER / view | binario, idempotente; eventi `Frozen`/`Unfrozen` al cambio |
-| `blockAccount(a)` / `unblockAccount(a)` / `isBlocked(a)` | BLOCKER / view | idempotente; eventi `Blocked`/`Unblocked` al cambio |
+| `freeze(a)` / `unfreeze(a)` / `isFrozen(a)` | FREEZER / view | binario, idempotente; eventi `Frozen`/`Unfrozen` al cambio; `a==0` reverta `InvalidFreezeAccount` (v2.5.0) |
+| `blockAccount(a)` / `unblockAccount(a)` / `isBlocked(a)` | BLOCKER / view | idempotente; eventi `Blocked`/`Unblocked` al cambio; `a==0` reverta `InvalidBlockAccount` (v2.5.0) |
+| `isRestricted(a)` | view | `isBlocked(a) || isFrozen(a)` — check unico per gli integratori (v2.5.0) |
 | `pause()` / `unpause()` / `paused()` | PAUSER / view | blocca tutti i trasferimenti TRANNE lo sweep custodia |
 
 Ordine revert su transfer: `AccountBlocked` → `AccountFrozen` → `EnforcedPause`.
@@ -89,8 +94,8 @@ Mint/burn esenti da block/freeze/fee (non dalla pausa).
 |---|---|
 | `permit(owner, spender, value, deadline, v, r, s)` | EIP-2612 |
 | `nonces(owner)` / `DOMAIN_SEPARATOR()` / `eip712Domain()` | EIP-2612/5267 |
-| `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` | EIP-3009 — **lordo**: `to` riceve `value` esatti, `from` paga `value + fee` |
-| `receiveWithAuthorization(...)` | come sopra, `to == msg.sender` obbligatorio |
+| `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)` | EIP-3009 — **lordo**: `to` riceve `value` esatti, `from` paga `value + fee`. Typehash `TransferWithAuthorization` |
+| `receiveWithAuthorization(...)` | come sopra, `to == msg.sender` obbligatorio (altrimenti `CallerNotPayee`). **Typehash DISTINTO `ReceiveWithAuthorization`** (v2.5.0): una firma receive NON è eseguibile via transfer (anti-front-running) |
 | `cancelAuthorization(authorizer, nonce, v, r, s)` | invalida un nonce |
 | `authorizationState(authorizer, nonce)` | view |
 
@@ -99,7 +104,7 @@ Mint/burn esenti da block/freeze/fee (non dalla pausa).
 | Funzione | Note |
 |---|---|
 | `transferAndCall(to, value[, data])` | **lordo**; callback `onTransferReceived` su contratti |
-| `transferFromAndCall(from, to, value[, data])` | **lordo**; l'allowance deve coprire `value + fee` e viene consumata per il lordo |
+| `transferFromAndCall(from, to, value[, data])` | **lordo**; l'allowance deve coprire il lordo EFFETTIVAMENTE pagato: `value + fee`, oppure solo `value` se `from` è il fee collector (fee saltata, v2.5.0) |
 | `approveAndCall(spender, value[, data])` | approve + callback `onApprovalReceived` |
 | `supportsInterface(bytes4)` | IERC1363, IAccessControl, IERC165 |
 
@@ -125,7 +130,7 @@ Evento: `AssetRecovered(AssetKind indexed kind, address indexed asset, address i
 |---|---|
 | `websiteURI()` / `setWebsiteURI(string)` | landing page ufficiale dell'emittente; evento `WebsiteURIUpdated(prev, new)` |
 | `reserveInfoURI()` / `setReserveInfoURI(string)` | pagina attestazioni proof-of-reserve (PEG_ORO.md) — pointer, non prova; evento `ReserveInfoURIUpdated(prev, new)` |
-| `contractURI()` / `setContractURI(string)` | metadata a livello contratto (ERC-7572); evento `ContractURIUpdated(prev, new)` |
+| `contractURI()` / `setContractURI(string)` | metadata a livello contratto (ERC-7572); emette `ContractURIUpdated(prev, new)` **e** l'evento canonico parameter-less `ContractURIUpdated()` (v2.5.0) per il refresh degli explorer conformi |
 
 Tutti i setter richiedono `DEFAULT_ADMIN_ROLE`, non `FEE_ADMIN`/`SWEEPER` —
 `reserveInfoURI` è l'ancora di fiducia del token.

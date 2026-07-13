@@ -371,14 +371,14 @@ contract TokenCoverageGapsTest is Test {
         new ERC1967Proxy(address(impl), initData);
     }
 
-    /// @dev DOCUMENTATIVO: initialHolder = address(0) con supply > 0 salta
-    /// silenziosamente il mint iniziale (comportamento voluto: nessun revert)
-    function test_init_zeroHolderWithSupply_skipsMintSilently() public {
+    /// @dev A3-fix: initialHolder = address(0) con supply > 0 deve REVERTARE
+    /// (InvalidInitialHolder) invece di inizializzare in silenzio con supply 0.
+    function test_init_zeroHolderWithSupply_reverts() public {
         Token impl = new Token();
-        UUPSProxy proxy = new UUPSProxy(address(impl), _initData(address(0), 10, collector, 50, treasury, admin));
-        Token t = Token(payable(address(proxy)));
-
-        assertEq(t.totalSupply(), 0);
+        bytes memory initData = _initData(address(0), 10, collector, 50, treasury, admin);
+        // ERC1967Proxy bubbles the original custom error (UUPSProxy wraps it)
+        vm.expectRevert(Token.InvalidInitialHolder.selector);
+        new ERC1967Proxy(address(impl), initData);
     }
 
     /// @dev Gap 1 (AUDIT_EVENTI.md): initialize emette gli eventi *Updated della

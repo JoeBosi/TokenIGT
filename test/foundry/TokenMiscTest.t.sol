@@ -425,7 +425,7 @@ contract TokenMiscTest is Test {
     // ─────────────────────────────────────────────
 
     function test_version_returnsV2() public view {
-        assertEq(token.version(), "2.4.0");
+        assertEq(token.version(), "2.5.0");
     }
 
     /// @dev name/symbol/decimals set by __ERC20_init in initialize
@@ -615,6 +615,53 @@ contract TokenMiscTest is Test {
         assertEq(token.balanceOf(regularRecipient), value - fee);
         assertEq(token.balanceOf(feeCollectorAddr), fee);
         assertEq(token.allowance(owner, spender), 0);
+    }
+
+    // ─────────────────────────────────────────────
+    // v2.5.0 — audit fixes (A4 zero-address guard) + view additions
+    // ─────────────────────────────────────────────
+
+    /// @dev A4: freeze/unfreeze(address(0)) revert instead of emitting a spurious event
+    function test_freeze_zeroAddressReverts() public {
+        vm.expectRevert(ERC20FreezableUpgradeable.InvalidFreezeAccount.selector);
+        token.freeze(address(0));
+        vm.expectRevert(ERC20FreezableUpgradeable.InvalidFreezeAccount.selector);
+        token.unfreeze(address(0));
+    }
+
+    /// @dev A4: blockAccount/unblockAccount(address(0)) revert
+    function test_block_zeroAddressReverts() public {
+        vm.expectRevert(ERC20BlocklistUpgradeable.InvalidBlockAccount.selector);
+        token.blockAccount(address(0));
+        vm.expectRevert(ERC20BlocklistUpgradeable.InvalidBlockAccount.selector);
+        token.unblockAccount(address(0));
+    }
+
+    /// @dev isRestricted == blocked || frozen (single authoritative check)
+    function test_isRestricted_combinesBlockAndFreeze() public {
+        assertFalse(token.isRestricted(regularSender));
+        token.freeze(regularSender);
+        assertTrue(token.isRestricted(regularSender));
+        token.unfreeze(regularSender);
+        assertFalse(token.isRestricted(regularSender));
+        token.blockAccount(regularSender);
+        assertTrue(token.isRestricted(regularSender));
+    }
+
+    /// @dev exempt count getters track the set size (O(1))
+    function test_exemptCounts_trackSetSize() public {
+        assertEq(token.getTransferFeeExemptCount(), 0);
+        assertEq(token.getCustodyFeeExemptCount(), 0);
+
+        token.addTransferFeeExempt(regularSender);
+        token.addTransferFeeExempt(regularRecipient);
+        token.addCustodyFeeExempt(regularSender);
+
+        assertEq(token.getTransferFeeExemptCount(), 2);
+        assertEq(token.getCustodyFeeExemptCount(), 1);
+
+        token.removeTransferFeeExempt(regularSender);
+        assertEq(token.getTransferFeeExemptCount(), 1);
     }
 }
 

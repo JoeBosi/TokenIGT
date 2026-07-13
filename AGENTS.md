@@ -1,6 +1,6 @@
 # AGENTS.md — Specifica operativa per agenti AI
 
-## Token ERC-20 avanzato — v2.4.0 — OpenZeppelin v5.6.1 (UUPS)
+## Token ERC-20 avanzato — v2.5.0 — OpenZeppelin v5.6.1 (UUPS)
 
 > Documento operativo per lo sviluppo assistito da AI. Documenti correlati:
 > `SPEC_FEE_CUSTODIA.md` (spec e decisioni D1–D8), `roles.md` (matrice ruoli×metodi),
@@ -28,7 +28,7 @@ STESSE impostazioni di optimizer — i test devono coprire il bytecode che va on
 
 ```
 contracts/
-├── Token.sol                                # Contratto principale (v2.4.0)
+├── Token.sol                                # Contratto principale (v2.5.0)
 ├── extensions/
 │   ├── FeeRoles.sol                         # Costanti FEE_ADMIN_ROLE + SWEEPER_ROLE (split v2.4.0)
 │   ├── ERC20TransferFeeUpgradeable.sol      # Fee di scambio (sezione 8)
@@ -135,7 +135,7 @@ a fine fase di sviluppo/testing, dopo audit esterno.
 
 - **Target**: ≥95% lines / ≥90% branches sui contratti core (attuale: Token 100%/100%,
   estensioni ≥93,6% lines e 100% branches — residuo = `__init_unchained` vuote)
-- Stato attuale: **546 test verdi** (327 Foundry: unit+fuzz+invariant; 219 Hardhat)
+- Stato attuale: **561 test verdi** (335 Foundry: unit+fuzz+invariant; 226 Hardhat)
 - Ogni funzione privilegiata DEVE avere il test "ruolo sbagliato → 
   `AccessControlUnauthorizedAccount`" su entrambe le suite
 - Ogni feature nuova: test in ENTRAMBE le suite (Foundry = fuzz/invariant,
@@ -322,7 +322,7 @@ compromessa non deve poter redirigere gli utenti verso attestazioni false.
 
 1. Compilare senza warning propri (0.8.28, optimizer 200 runs, cancun) e con
    `forge fmt --check` pulito (CI).
-2. **Tutti i 546 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
+2. **Tutti i 561 test devono passare** (`forge test` + `pnpm test`) prima di ogni commit.
 3. Validare ogni upgrade con OZ Upgrades; mai modificare layout esistenti.
 4. NatSpec completo su funzioni pubbliche/external, eventi ed errori custom.
 5. Moduli custom coperti ≥95% lines / 100% branches.

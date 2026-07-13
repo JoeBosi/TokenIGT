@@ -64,22 +64,26 @@ describe("Token - ERC-1363", function () {
         .to.emit(receiver, "TransferReceived");
     });
 
-    it("Should update balances and allowance correctly", async function () {
+    // NOTE: in questo spec feeCollector == owner (== from), quindi si esercita il
+    // caso A5: la gamba fee è saltata (la fee resta a `from`), perciò dal saldo di
+    // `from` esce solo `value` e l'allowance è addebitata SOLO `value` (non value+fee).
+    // Il caso "gross" con collector distinto è coperto dalla suite Foundry.
+    it("Should charge allowance only `value` when from is the fee collector (A5)", async function () {
       const amount = ethers.parseEther("100");
-      // Gross semantics: allowance covers value + fee and is fully consumed;
-      // the recipient receives EXACTLY the stated value
-      const fee = (amount * 10n) / 10000n;
-      await token.approve(addr1.address, amount + fee);
+      // Allowance di esattamente `value` (NON value+fee) deve bastare
+      await token.approve(addr1.address, amount);
 
       await token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount);
 
       expect(await token.balanceOf(await receiver.getAddress())).to.equal(amount);
+      // from (== collector) perde solo `value`: la fee resta a lui
+      expect(await token.balanceOf(owner.address)).to.equal(INITIAL_SUPPLY - amount);
       expect(await token.allowance(owner.address, addr1.address)).to.equal(0);
     });
 
-    it("Should revert when allowance covers only the value but not the fee", async function () {
+    it("Should revert when allowance is below the amount actually owed", async function () {
       const amount = ethers.parseEther("100");
-      await token.approve(addr1.address, amount); // fee not covered
+      await token.approve(addr1.address, amount - 1n); // meno del dovuto
 
       await expect(
         token.connect(addr1).transferFromAndCall(owner.address, await receiver.getAddress(), amount)

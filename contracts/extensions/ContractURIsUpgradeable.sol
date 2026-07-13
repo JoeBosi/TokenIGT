@@ -39,7 +39,17 @@ abstract contract ContractURIsUpgradeable is Initializable, AccessControlUpgrade
 
     event WebsiteURIUpdated(string previousURI, string newURI);
     event ReserveInfoURIUpdated(string previousURI, string newURI);
+    /// @dev Rich event for off-chain monitoring (previous + new value). The
+    /// canonical parameter-less ERC-7572 `ContractURIUpdated()` signal is ALSO
+    /// emitted from setContractURI (via low-level log) so conformant indexers
+    /// refresh their metadata — Solidity forbids two same-name events, hence the
+    /// canonical one is emitted by topic.
     event ContractURIUpdated(string previousURI, string newURI);
+
+    /// @dev topic0 of the canonical ERC-7572 event `ContractURIUpdated()`
+    /// = keccak256("ContractURIUpdated()")
+    bytes32 private constant ERC7572_CONTRACT_URI_UPDATED_TOPIC =
+        0xa5d4097edda6d87cb9329af83fb3712ef77eeb13738ffe43cc35a4ce305ad962;
 
     function __ContractURIs_init() internal onlyInitializing {}
 
@@ -70,7 +80,7 @@ abstract contract ContractURIsUpgradeable is Initializable, AccessControlUpgrade
     /**
      * @notice Set the issuer's official website
      */
-    function setWebsiteURI(string calldata newURI) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWebsiteURI(string calldata newURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
         ContractURIsStorage storage $ = _getContractURIsStorage();
         string memory previousURI = $.websiteURI;
         $.websiteURI = newURI;
@@ -80,7 +90,7 @@ abstract contract ContractURIsUpgradeable is Initializable, AccessControlUpgrade
     /**
      * @notice Set the proof-of-reserve landing page
      */
-    function setReserveInfoURI(string calldata newURI) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setReserveInfoURI(string calldata newURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
         ContractURIsStorage storage $ = _getContractURIsStorage();
         string memory previousURI = $.reserveInfoURI;
         $.reserveInfoURI = newURI;
@@ -89,12 +99,20 @@ abstract contract ContractURIsUpgradeable is Initializable, AccessControlUpgrade
 
     /**
      * @notice Set the contract-level metadata URI (ERC-7572)
+     * @dev Emits both the rich `ContractURIUpdated(prev,new)` (monitoring) and the
+     * canonical parameter-less ERC-7572 `ContractURIUpdated()` (via log) so that
+     * conformant explorers/marketplaces refresh the contract metadata.
      */
-    function setContractURI(string calldata newURI) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setContractURI(string calldata newURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
         ContractURIsStorage storage $ = _getContractURIsStorage();
         string memory previousURI = $.contractURI;
         $.contractURI = newURI;
         emit ContractURIUpdated(previousURI, newURI);
+        // Canonical ERC-7572 signal: parameter-less event, one topic, no data.
+        bytes32 topic = ERC7572_CONTRACT_URI_UPDATED_TOPIC;
+        assembly {
+            log1(0x00, 0x00, topic)
+        }
     }
 
     function _getContractURIsStorage() private pure returns (ContractURIsStorage storage $) {
